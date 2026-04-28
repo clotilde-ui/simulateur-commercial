@@ -439,7 +439,7 @@ export default function Simulator() {
                   sub={`${ctr.toFixed(1)}% de taux`} accent={accent} />
                 <KCard label={ch.funnel[0]} value={impr} fmt="int"
                   sub="volume estimé" accent={accent} />
-                <KCard label="Taux global" value={impr > 0 ? (leads / impr * 100) : 0} fmt="pct"
+                <KCard label="Taux impressions → leads" value={impr > 0 ? (leads / impr * 100) : 0} fmt="pct"
                   sub={`${ch.funnel[0]} → ${ch.funnel[2]}`} accent={accent} />
                 <KCard label="Taux de clics → leads" value={clicks > 0 ? (leads / clicks * 100) : 0} fmt="pctS"
                   sub={`${ch.funnel[1]} → ${ch.funnel[2]}`} accent={accent} />
@@ -485,7 +485,7 @@ export default function Simulator() {
                     {[
                       { l: "Budget", v: `${(mode === "budget" ? budget : budgetOut).toLocaleString("fr-FR")} €` },
                       { l: "CPL", v: `${Math.round(cpl).toLocaleString("fr-FR")} €` },
-                      { l: "Taux global", v: `${impr > 0 ? (leads / impr * 100).toFixed(3) : "0.000"} %` },
+                      { l: "Taux impressions → leads", v: `${impr > 0 ? (leads / impr * 100).toFixed(3) : "0.000"} %` },
                     ].map((s, i) => (
                       <div key={i} style={{ flex: 1, textAlign: "center", borderRight: i < 2 ? "1px solid rgba(255,255,255,0.06)" : "none" }}>
                         <div style={{ fontSize: 9, color: "rgba(255,255,255,0.27)", letterSpacing: "0.1em", textTransform: "uppercase", marginBottom: 4 }}>{s.l}</div>
