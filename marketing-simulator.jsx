@@ -351,6 +351,25 @@ export default function Simulator() {
         </header>
 
         <div style={S.inner}>
+          {/* Personalisation hero */}
+          <div style={{ display: "flex", alignItems: "center", gap: 20, marginBottom: 28, paddingBottom: 24, borderBottom: "1px solid rgba(255,255,255,0.06)" }}>
+            {logo && (
+              <img src={logo} alt="" style={{ height: 56, maxWidth: 120, borderRadius: 10, objectFit: "contain", flexShrink: 0 }} />
+            )}
+            <div>
+              {prospect ? (
+                <div style={{ fontFamily: "'Syne',sans-serif", fontWeight: 800, fontSize: 26, letterSpacing: "-0.02em", lineHeight: 1.2, color: "#F6F1E8" }}>
+                  Simulation personnalisée pour{" "}
+                  <span style={{ color: accent }}>{prospect}</span>
+                </div>
+              ) : (
+                <div style={{ fontFamily: "'Syne',sans-serif", fontWeight: 700, fontSize: 22, letterSpacing: "-0.02em", color: "rgba(255,255,255,0.2)" }}>
+                  Configurez votre simulation
+                </div>
+              )}
+            </div>
+          </div>
+
           {/* Selectors row */}
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 20, marginBottom: 24 }}>
             <div>
@@ -481,6 +500,11 @@ export default function Simulator() {
                   })}
 
                   {/* Summary strip */}
+                  {prospect && (
+                    <div style={{ fontFamily: "'Syne',sans-serif", fontWeight: 700, fontSize: 11, letterSpacing: "0.04em", color: "rgba(255,255,255,0.35)", marginTop: 20, marginBottom: -8 }}>
+                      Récapitulatif pour <span style={{ color: accent }}>{prospect}</span>
+                    </div>
+                  )}
                   <div style={{ marginTop: 20, paddingTop: 14, borderTop: "1px solid rgba(255,255,255,0.06)", display: "flex", gap: 0 }}>
                     {[
                       { l: "Budget", v: `${(mode === "budget" ? budget : budgetOut).toLocaleString("fr-FR")} €` },
