@@ -6,7 +6,7 @@ import { useState, useEffect, useLayoutEffect, useRef } from "react";
 const CFG = {
   channels: {
     "google-ads": {
-      label: "Google Ads", color: "#3B82F6",
+      label: "Google Ads", color: "#FF6B3D",
       funnel: ["Impressions", "Clics", "Leads"],
       cpcLabel: "CPC (€)", ctrLabel: "CTR (%)", ctrMax: 15, cpcMax: 20, cpcStep: 0.1,
       sectors: {
@@ -20,7 +20,7 @@ const CFG = {
       },
     },
     meta: {
-      label: "Meta Ads", color: "#818CF8",
+      label: "Meta Ads", color: "#FF6B3D",
       funnel: ["Impressions", "Clics", "Leads"],
       cpcLabel: "CPC (€)", ctrLabel: "CTR (%)", ctrMax: 10, cpcMax: 15, cpcStep: 0.1,
       sectors: {
@@ -34,7 +34,7 @@ const CFG = {
       },
     },
     linkedin: {
-      label: "LinkedIn Ads", color: "#06B6D4",
+      label: "LinkedIn Ads", color: "#FF6B3D",
       funnel: ["Impressions", "Clics", "Leads"],
       cpcLabel: "CPC (€)", ctrLabel: "CTR (%)", ctrMax: 5, cpcMax: 25, cpcStep: 0.5,
       sectors: {
@@ -48,7 +48,7 @@ const CFG = {
       },
     },
     seo: {
-      label: "SEO", color: "#10B981",
+      label: "SEO", color: "#FF6B3D",
       funnel: ["Impressions", "Visiteurs", "Leads"],
       cpcLabel: null, ctrLabel: "CTR (%)", ctrMax: 20, cpcMax: 0, cpcStep: 0,
       sectors: {
@@ -62,7 +62,7 @@ const CFG = {
       },
     },
     email: {
-      label: "Cold Email", color: "#F59E0B",
+      label: "Cold Email", color: "#FF6B3D",
       funnel: ["Envois", "Ouvertures", "Réponses"],
       cpcLabel: "Coût/email (€)", ctrLabel: "Taux d'ouverture (%)", ctrMax: 60, cpcMax: 0.5, cpcStep: 0.01,
       sectors: {
@@ -188,7 +188,7 @@ function KCard({ label, sub, value, fmt, accent, highlight }) {
       border: `1px solid ${highlight ? accent + "55" : "rgba(255,255,255,0.06)"}`,
     }}>
       <div style={{ fontSize: 9, letterSpacing: "0.12em", textTransform: "uppercase", color: "rgba(255,255,255,0.3)", marginBottom: 7 }}>{label}</div>
-      <div style={{ fontFamily: "'Syne',sans-serif", fontWeight: 800, fontSize: highlight ? 30 : 21, letterSpacing: "-0.03em", lineHeight: 1, color: highlight ? accent : "#DDD8CE" }}>
+      <div style={{ fontFamily: "'Syne',sans-serif", fontWeight: 800, fontSize: highlight ? 30 : 21, letterSpacing: "-0.03em", lineHeight: 1, color: highlight ? accent : "#F6F1E8" }}>
         <Num value={value} fmt={fmt} />
       </div>
       {sub && <div style={{ fontSize: 10, color: "rgba(255,255,255,0.27)", marginTop: 5 }}>{sub}</div>}
@@ -317,7 +317,7 @@ export default function Simulator() {
     : `${cpc.toFixed(1)} €`;
 
   const S = {
-    root: { minHeight: "100vh", background: "#07090F", fontFamily: "'DM Sans',sans-serif", color: "#DDD8CE", position: "relative" },
+    root: { minHeight: "100vh", background: "#0F332B", fontFamily: "'DM Sans',sans-serif", color: "#F6F1E8", position: "relative" },
     grid: { backgroundImage: "linear-gradient(rgba(255,255,255,0.018) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,0.018) 1px,transparent 1px)", backgroundSize: "44px 44px", position: "fixed", inset: 0, pointerEvents: "none", zIndex: 0 },
     wrap: { position: "relative", zIndex: 1 },
     header: { borderBottom: "1px solid rgba(255,255,255,0.055)", padding: "14px 28px", background: "rgba(0,0,0,0.25)", display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 10 },
@@ -349,7 +349,7 @@ export default function Simulator() {
             <input type="file" ref={logoRef} accept="image/*" onChange={handleLogo} style={{ display: "none" }} />
             <div>
               <input value={prospect} onChange={e => setProspect(e.target.value)} placeholder="Nom du prospect…"
-                style={{ background: "transparent", border: "none", outline: "none", fontFamily: "'Syne',sans-serif", fontWeight: 700, fontSize: 14, color: "#DDD8CE", width: 200 }} />
+                style={{ background: "transparent", border: "none", outline: "none", fontFamily: "'Syne',sans-serif", fontWeight: 700, fontSize: 14, color: "#F6F1E8", width: 200 }} />
               <div style={{ fontSize: 9, color: "rgba(255,255,255,0.25)", letterSpacing: "0.08em", marginTop: 1 }}>
                 {CFG.sectors[sector]} · {ch.label}
               </div>
@@ -359,9 +359,9 @@ export default function Simulator() {
             {shareUrl && <span style={{ fontSize: 10, color: "rgba(255,255,255,0.22)", fontFamily: "monospace", maxWidth: 220, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{shareUrl}</span>}
             <button onClick={handleShare} style={{
               padding: "7px 16px", borderRadius: 7, fontSize: 11.5, fontWeight: 500, cursor: "pointer",
-              background: copied ? "rgba(16,185,129,0.1)" : "rgba(255,255,255,0.05)",
-              border: `1px solid ${copied ? "rgba(16,185,129,0.3)" : "rgba(255,255,255,0.09)"}`,
-              color: copied ? "#10B981" : "rgba(255,255,255,0.55)", transition: "all 0.2s"
+              background: copied ? "rgba(255,107,61,0.1)" : "rgba(255,255,255,0.05)",
+              border: `1px solid ${copied ? "rgba(255,107,61,0.3)" : "rgba(255,255,255,0.09)"}`,
+              color: copied ? "#FF6B3D" : "rgba(255,255,255,0.55)", transition: "all 0.2s"
             }}>
               {copied ? "✓ Lien copié" : "Générer lien"}
             </button>
@@ -439,7 +439,7 @@ export default function Simulator() {
 
               {/* Channel note */}
               {channel === "seo" && (
-                <div style={{ marginTop: 10, padding: "10px 12px", background: "rgba(16,185,129,0.06)", borderRadius: 8, border: "1px solid rgba(16,185,129,0.15)", fontSize: 10, color: "rgba(255,255,255,0.38)", lineHeight: 1.6 }}>
+                <div style={{ marginTop: 10, padding: "10px 12px", background: "rgba(255,107,61,0.06)", borderRadius: 8, border: "1px solid rgba(255,107,61,0.15)", fontSize: 10, color: "rgba(255,255,255,0.38)", lineHeight: 1.6 }}>
                   SEO — Impressions estimées à partir du budget mensuel (contenu + netlinking). Pas de CPC direct.
                 </div>
               )}
@@ -469,7 +469,7 @@ export default function Simulator() {
                   <Funnel stages={stages} color={accent} />
                 </div>
                 <div style={{ padding: "22px 22px" }}>
-                  <div style={{ fontFamily: "'Syne',sans-serif", fontWeight: 700, fontSize: 13, marginBottom: 18, color: "#DDD8CE" }}>
+                  <div style={{ fontFamily: "'Syne',sans-serif", fontWeight: 700, fontSize: 13, marginBottom: 18, color: "#F6F1E8" }}>
                     Entonnoir de conversion
                   </div>
                   {stages.map((s, i) => {
@@ -487,7 +487,7 @@ export default function Simulator() {
                               </span>
                             )}
                           </div>
-                          <span style={{ fontFamily: "'Syne',sans-serif", fontWeight: 700, fontSize: 14, color: "#DDD8CE" }}>
+                          <span style={{ fontFamily: "'Syne',sans-serif", fontWeight: 700, fontSize: 14, color: "#F6F1E8" }}>
                             {Math.round(s.value).toLocaleString("fr-FR")}
                           </span>
                         </div>
