@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useLayoutEffect, useRef } from "react";
 
 // ═══════════════════════════════════════════════════════════
 //  CONFIG — modifier ici les valeurs par défaut par canal/secteur
@@ -214,8 +214,9 @@ export default function Simulator() {
   const ch     = CFG.channels[channel];
   const accent = ch.color;
 
-  // Reset defaults when channel/sector changes
-  useEffect(() => {
+  // Reset defaults when channel/sector changes — useLayoutEffect prevents a visible
+  // flash of wrong metrics caused by the old CPC/CTR being used with the new channel.
+  useLayoutEffect(() => {
     const d = ch.sectors[sector];
     if (d) { setCpc(d.cpc); setCtr(d.ctr); setConv(d.conv); setBudget(d.budget); }
   }, [channel, sector]);
