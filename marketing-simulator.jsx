@@ -233,6 +233,26 @@ export default function Simulator() {
     if (d) { setCpc(d.cpc); setCtr(d.ctr); setConv(d.conv); setBudget(d.budget); }
   }, [channel, sector]);
 
+  // Restore state from shared URL on first load
+  useEffect(() => {
+    const s = new URLSearchParams(window.location.search).get("s");
+    if (!s) return;
+    try {
+      const d = JSON.parse(atob(s));
+      if (CFG.channels[d.channel] && CFG.sectors[d.sector]) {
+        setChannel(d.channel);
+        setSector(d.sector);
+        setMode(d.mode === "leads" ? "leads" : "budget");
+        if (d.budget > 0)  setBudget(d.budget);
+        if (d.tLeads > 0)  setTLeads(d.tLeads);
+        if (d.cpc   >= 0)  setCpc(d.cpc);
+        if (d.ctr   > 0)   setCtr(d.ctr);
+        if (d.conv  > 0)   setConv(d.conv);
+        if (d.prospect)    setProspect(d.prospect);
+      }
+    } catch (_) {}
+  }, []);
+
   // ── Funnel computation ────────────────────────────────────
   let impr = 0, clicks = 0, leads = 0, cpl = 0, budgetOut = 0;
   const safeDiv = (a, b) => b > 0 ? a / b : 0;
@@ -336,12 +356,10 @@ export default function Simulator() {
 
   // ── Share ─────────────────────────────────────────────────
   const handleShare = async () => {
-    const id = Math.random().toString(36).slice(2, 9);
-    try {
-      await window.storage?.set(`sim:${id}`, JSON.stringify({ channel, sector, mode, budget, tLeads, cpc, ctr, conv, prospect }));
-    } catch (_) {}
-    setShareId(id);
-    try { await navigator.clipboard.writeText(`https://sim.agence.io/${id}`); } catch (_) {}
+    const encoded = btoa(JSON.stringify({ channel, sector, mode, budget, tLeads, cpc, ctr, conv, prospect }));
+    const url = `${window.location.origin}${window.location.pathname}?s=${encoded}`;
+    setShareUrl(url);
+    try { await navigator.clipboard.writeText(url); } catch (_) {}
     setCopied(true);
     setTimeout(() => setCopied(false), 2500);
   };
@@ -408,7 +426,7 @@ export default function Simulator() {
             </div>
           </div>
           <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-            {shareId && <span style={{ fontSize: 10, color: "rgba(255,255,255,0.22)", fontFamily: "monospace" }}>sim.agence.io/{shareId}</span>}
+            {shareUrl && <span style={{ fontSize: 10, color: "rgba(255,255,255,0.22)", fontFamily: "monospace", maxWidth: 220, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{shareUrl}</span>}
             <button onClick={handleShare} style={{
               padding: "7px 16px", borderRadius: 7, fontSize: 11.5, fontWeight: 500, cursor: "pointer",
               background: copied ? "rgba(255,107,61,0.1)" : "rgba(255,255,255,0.05)",
@@ -628,10 +646,10 @@ export default function Simulator() {
                     ))}
                   </div>
 
-                  {shareId && (
+                  {shareUrl && (
                     <div style={{ marginTop: 14, padding: "9px 12px", background: "rgba(255,255,255,0.03)", borderRadius: 7, border: "1px solid rgba(255,255,255,0.07)" }}>
-                      <div style={{ fontSize: 8, color: "rgba(255,255,255,0.25)", letterSpacing: "0.12em", marginBottom: 3 }}>LIEN · NOINDEX</div>
-                      <div style={{ fontSize: 11, color: accent, fontFamily: "monospace" }}>https://sim.agence.io/{shareId}</div>
+                      <div style={{ fontSize: 8, color: "rgba(255,255,255,0.25)", letterSpacing: "0.12em", marginBottom: 3 }}>LIEN DE PARTAGE</div>
+                      <div style={{ fontSize: 10, color: accent, fontFamily: "monospace", wordBreak: "break-all" }}>{shareUrl}</div>
                     </div>
                   )}
                 </div>
