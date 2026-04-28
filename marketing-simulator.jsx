@@ -100,9 +100,11 @@ function useCountUp(target, ms = 600) {
     const tick = (now) => {
       const p = Math.min((now - t0) / ms, 1);
       const e = 1 - Math.pow(1 - p, 3);
-      setVal(from + diff * e);
+      const next = from + diff * e;
+      prev.current = next;
+      setVal(next);
       if (p < 1) raf.current = requestAnimationFrame(tick);
-      else { setVal(target); prev.current = target; }
+      else { prev.current = target; setVal(target); }
     };
     raf.current = requestAnimationFrame(tick);
     return () => cancelAnimationFrame(raf.current);
@@ -385,7 +387,7 @@ export default function Simulator() {
                 {mode === "budget" ? (
                   <>
                     <div style={{ fontSize: 10, color: "rgba(255,255,255,0.32)", marginBottom: 5 }}>Budget mensuel (€)</div>
-                    <input type="number" value={budget} onChange={e => setBudget(Math.max(1, Number(e.target.value)))}
+                    <input type="number" value={budget} onChange={e => setBudget(Math.min(50000, Math.max(1, Number(e.target.value))))}
                       style={{ background: "transparent", border: "none", outline: "none", fontFamily: "'Syne',sans-serif", fontWeight: 800, fontSize: 34, color: "#fff", letterSpacing: "-0.03em", width: "100%" }} />
                     <input type="range" min={100} max={50000} step={100} value={budget}
                       onChange={e => setBudget(Number(e.target.value))}
@@ -394,7 +396,7 @@ export default function Simulator() {
                 ) : (
                   <>
                     <div style={{ fontSize: 10, color: "rgba(255,255,255,0.32)", marginBottom: 5 }}>Objectif leads / mois</div>
-                    <input type="number" value={tLeads} onChange={e => setTLeads(Math.max(1, Number(e.target.value)))}
+                    <input type="number" value={tLeads} onChange={e => setTLeads(Math.min(500, Math.max(1, Number(e.target.value))))}
                       style={{ background: "transparent", border: "none", outline: "none", fontFamily: "'Syne',sans-serif", fontWeight: 800, fontSize: 34, color: "#fff", letterSpacing: "-0.03em", width: "100%" }} />
                     <input type="range" min={1} max={500} step={1} value={tLeads}
                       onChange={e => setTLeads(Number(e.target.value))}
@@ -407,7 +409,7 @@ export default function Simulator() {
               <div style={S.panel}>
                 <div style={{ ...S.label, marginBottom: 14 }}>Paramètres du canal</div>
                 {ch.cpcLabel && (
-                  <Slider label={ch.cpcLabel} value={cpc} min={0.01} max={ch.cpcMax}
+                  <Slider label={ch.cpcLabel} value={cpc} min={ch.cpcStep} max={ch.cpcMax}
                     step={ch.cpcStep} onChange={setCpc} accent={accent} display={cpcDisplay} />
                 )}
                 <Slider label={ch.ctrLabel} value={ctr} min={0.1} max={ch.ctrMax}
