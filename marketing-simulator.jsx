@@ -210,9 +210,21 @@ export default function Simulator() {
   const [logo, setLogo]       = useState(null);
   const [shareId, setShareId] = useState(null);
   const [copied, setCopied]   = useState(false);
+  const [exportMenu, setExportMenu] = useState(false);
+  const [exporting, setExporting]   = useState(false);
 
   const ch     = CFG.channels[channel];
   const accent = ch.color;
+
+  const contentRef   = useRef();
+  const exportBtnRef = useRef();
+
+  const exportFileName = (() => {
+    const slug = prospect
+      ? prospect.toLowerCase().replace(/\s+/g, "-").replace(/[^a-z0-9-]/g, "")
+      : "";
+    return slug ? `simulation-${slug}-${channel}` : `simulation-${channel}`;
+  })();
 
   // Reset defaults when channel/sector changes — useLayoutEffect prevents a visible
   // flash of wrong metrics caused by the old CPC/CTR being used with the new channel.
@@ -263,6 +275,64 @@ export default function Simulator() {
     { label: ch.funnel[1], value: clicks },
     { label: ch.funnel[2], value: leads },
   ];
+
+  // ── Export dropdown — close on outside click ──────────────
+  useEffect(() => {
+    if (!exportMenu) return;
+    const close = (e) => {
+      if (exportBtnRef.current && !exportBtnRef.current.contains(e.target))
+        setExportMenu(false);
+    };
+    document.addEventListener("mousedown", close);
+    return () => document.removeEventListener("mousedown", close);
+  }, [exportMenu]);
+
+  const captureCanvas = () =>
+    import("html2canvas").then(({ default: html2canvas }) =>
+      html2canvas(contentRef.current, {
+        scale: 2,
+        backgroundColor: "#0F332B",
+        useCORS: true,
+        logging: false,
+        onclone: (_, el) => { el.style.paddingBottom = "32px"; },
+      })
+    );
+
+  const handleExportPng = async () => {
+    setExportMenu(false);
+    setExporting(true);
+    try {
+      await document.fonts.ready;
+      const canvas = await captureCanvas();
+      const a = document.createElement("a");
+      a.href = canvas.toDataURL("image/png");
+      a.download = `${exportFileName}.png`;
+      a.click();
+    } finally {
+      setExporting(false);
+    }
+  };
+
+  const handleExportPdf = async () => {
+    setExportMenu(false);
+    setExporting(true);
+    try {
+      await document.fonts.ready;
+      const canvas = await captureCanvas();
+      const { jsPDF } = await import("jspdf");
+      const pdf = new jsPDF({ orientation: "landscape", unit: "mm", format: "a4" });
+      const pdfW = pdf.internal.pageSize.getWidth();
+      const pdfH = pdf.internal.pageSize.getHeight();
+      const ratio = Math.min(pdfW / canvas.width, pdfH / canvas.height);
+      const imgW = canvas.width * ratio;
+      const imgH = canvas.height * ratio;
+      pdf.addImage(canvas.toDataURL("image/png"), "PNG",
+        (pdfW - imgW) / 2, (pdfH - imgH) / 2, imgW, imgH);
+      pdf.save(`${exportFileName}.pdf`);
+    } finally {
+      setExporting(false);
+    }
+  };
 
   // ── Share ─────────────────────────────────────────────────
   const handleShare = async () => {
@@ -347,10 +417,50 @@ export default function Simulator() {
             }}>
               {copied ? "✓ Lien copié" : "Générer lien"}
             </button>
+            <div ref={exportBtnRef} style={{ position: "relative" }}>
+              <button
+                onClick={() => setExportMenu(m => !m)}
+                disabled={exporting}
+                style={{
+                  padding: "7px 16px", borderRadius: 7, fontSize: 11.5, fontWeight: 500,
+                  cursor: exporting ? "default" : "pointer",
+                  background: exportMenu ? "rgba(255,255,255,0.08)" : "rgba(255,255,255,0.05)",
+                  border: `1px solid ${exportMenu ? "rgba(255,255,255,0.18)" : "rgba(255,255,255,0.09)"}`,
+                  color: exporting ? "rgba(255,255,255,0.3)" : "rgba(255,255,255,0.55)",
+                  transition: "all 0.2s",
+                }}
+              >
+                {exporting ? "Export…" : "Exporter ↓"}
+              </button>
+              {exportMenu && (
+                <div style={{
+                  position: "absolute", top: "calc(100% + 6px)", right: 0, zIndex: 100,
+                  background: "#0F332B", border: "1px solid rgba(255,255,255,0.12)",
+                  borderRadius: 8, overflow: "hidden", minWidth: 168,
+                  boxShadow: "0 8px 24px rgba(0,0,0,0.5)",
+                }}>
+                  {[
+                    { label: "Exporter en PNG", action: handleExportPng },
+                    { label: "Exporter en PDF", action: handleExportPdf },
+                  ].map(({ label, action }) => (
+                    <button key={label} onClick={action} style={{
+                      display: "block", width: "100%", padding: "10px 16px",
+                      background: "transparent", border: "none", cursor: "pointer",
+                      fontSize: 12, color: "#F6F1E8", textAlign: "left",
+                    }}
+                      onMouseEnter={e => e.currentTarget.style.background = "rgba(255,255,255,0.07)"}
+                      onMouseLeave={e => e.currentTarget.style.background = "transparent"}
+                    >
+                      {label}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
           </div>
         </header>
 
-        <div style={S.inner}>
+        <div ref={contentRef} style={S.inner}>
           {/* Personalisation hero */}
           <div style={{ display: "flex", alignItems: "center", gap: 20, marginBottom: 28, paddingBottom: 24, borderBottom: "1px solid rgba(255,255,255,0.06)" }}>
             {logo && (
