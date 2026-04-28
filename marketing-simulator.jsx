@@ -1,90 +1,47 @@
 import { useState, useEffect, useLayoutEffect, useRef } from "react";
+import { SECTORS, getDefaultValues } from "./src/config/defaults";
 
-// ═══════════════════════════════════════════════════════════
-//  CONFIG — modifier ici les valeurs par défaut par canal/secteur
-// ═══════════════════════════════════════════════════════════
 const CFG = {
   channels: {
     "google-ads": {
-      label: "Google Ads", color: "#FF6B3D",
+      label: "Google Ads",
+      color: "#FF6B3D",
       funnel: ["Impressions", "Clics", "Leads"],
-      cpcLabel: "CPC (€)", ctrLabel: "CTR (%)", ctrMax: 15, cpcMax: 20, cpcStep: 0.1,
-      sectors: {
-        saas:      { cpc: 8.5,  ctr: 3.2, conv: 4.5, budget: 5000 },
-        industrie: { cpc: 4.8,  ctr: 2.5, conv: 3.2, budget: 3000 },
-        finance:   { cpc: 12.0, ctr: 2.8, conv: 3.8, budget: 8000 },
-        immo:      { cpc: 7.2,  ctr: 3.5, conv: 2.8, budget: 4000 },
-        rh:        { cpc: 5.5,  ctr: 3.0, conv: 3.5, budget: 3500 },
-        ecom:      { cpc: 3.2,  ctr: 4.5, conv: 5.2, budget: 2000 },
-        conseil:   { cpc: 9.0,  ctr: 2.2, conv: 3.0, budget: 6000 },
-      },
+      cpcLabel: "CPC (€)",
+      ctrLabel: "CTR (%)",
+      ctrMax: 15,
+      cpcMax: 20,
+      cpcStep: 0.1,
+      cpcDigits: 1,
+      showCtr: true,
     },
-    meta: {
-      label: "Meta Ads", color: "#FF6B3D",
+    "meta-ads": {
+      label: "Meta Ads",
+      color: "#FF6B3D",
       funnel: ["Impressions", "Clics", "Leads"],
-      cpcLabel: "CPC (€)", ctrLabel: "CTR (%)", ctrMax: 10, cpcMax: 15, cpcStep: 0.1,
-      sectors: {
-        saas:      { cpc: 4.2, ctr: 1.8, conv: 3.2, budget: 4000 },
-        industrie: { cpc: 2.8, ctr: 1.5, conv: 2.5, budget: 2000 },
-        finance:   { cpc: 6.5, ctr: 1.6, conv: 2.8, budget: 5000 },
-        immo:      { cpc: 5.0, ctr: 2.2, conv: 3.5, budget: 3500 },
-        rh:        { cpc: 3.5, ctr: 2.0, conv: 2.8, budget: 2500 },
-        ecom:      { cpc: 1.8, ctr: 3.2, conv: 4.5, budget: 1500 },
-        conseil:   { cpc: 4.8, ctr: 1.4, conv: 2.2, budget: 3500 },
-      },
+      cpcLabel: "CPC (€)",
+      ctrLabel: "CTR (%)",
+      ctrMax: 10,
+      cpcMax: 15,
+      cpcStep: 0.1,
+      cpcDigits: 1,
+      showCtr: true,
     },
-    linkedin: {
-      label: "LinkedIn Ads", color: "#FF6B3D",
+    "linkedin-ads": {
+      label: "LinkedIn Ads",
+      color: "#FF6B3D",
       funnel: ["Impressions", "Clics", "Leads"],
-      cpcLabel: "CPC (€)", ctrLabel: "CTR (%)", ctrMax: 5, cpcMax: 25, cpcStep: 0.5,
-      sectors: {
-        saas:      { cpc: 12.0, ctr: 0.8, conv: 6.5, budget: 8000 },
-        industrie: { cpc: 8.5,  ctr: 0.7, conv: 5.0, budget: 5000 },
-        finance:   { cpc: 15.0, ctr: 0.9, conv: 7.0, budget: 10000 },
-        immo:      { cpc: 10.0, ctr: 0.8, conv: 5.5, budget: 7000 },
-        rh:        { cpc: 9.0,  ctr: 1.0, conv: 6.0, budget: 6000 },
-        ecom:      { cpc: 7.5,  ctr: 0.7, conv: 4.5, budget: 4500 },
-        conseil:   { cpc: 13.0, ctr: 0.9, conv: 7.5, budget: 9000 },
-      },
+      cpcLabel: "CPC (€)",
+      ctrLabel: "CTR (%)",
+      ctrMax: 5,
+      cpcMax: 25,
+      cpcStep: 0.5,
+      cpcDigits: 1,
+      showCtr: true,
     },
-    seo: {
-      label: "SEO", color: "#FF6B3D",
-      funnel: ["Impressions", "Visiteurs", "Leads"],
-      cpcLabel: null, ctrLabel: "CTR (%)", ctrMax: 20, cpcMax: 0, cpcStep: 0,
-      sectors: {
-        saas:      { cpc: 0, ctr: 3.5, conv: 2.8, budget: 2000 },
-        industrie: { cpc: 0, ctr: 2.8, conv: 2.2, budget: 1500 },
-        finance:   { cpc: 0, ctr: 2.5, conv: 2.5, budget: 2500 },
-        immo:      { cpc: 0, ctr: 4.0, conv: 3.2, budget: 1800 },
-        rh:        { cpc: 0, ctr: 3.2, conv: 2.8, budget: 1800 },
-        ecom:      { cpc: 0, ctr: 5.0, conv: 3.5, budget: 1200 },
-        conseil:   { cpc: 0, ctr: 2.2, conv: 2.0, budget: 2000 },
-      },
-    },
-    email: {
-      label: "Cold Email", color: "#FF6B3D",
-      funnel: ["Envois", "Ouvertures", "Réponses"],
-      cpcLabel: "Coût/email (€)", ctrLabel: "Taux d'ouverture (%)", ctrMax: 60, cpcMax: 0.5, cpcStep: 0.01,
-      sectors: {
-        saas:      { cpc: 0.08, ctr: 35, conv: 4.5, budget: 800 },
-        industrie: { cpc: 0.06, ctr: 28, conv: 3.8, budget: 600 },
-        finance:   { cpc: 0.10, ctr: 30, conv: 4.0, budget: 1000 },
-        immo:      { cpc: 0.07, ctr: 32, conv: 4.2, budget: 700 },
-        rh:        { cpc: 0.06, ctr: 38, conv: 5.0, budget: 600 },
-        ecom:      { cpc: 0.05, ctr: 25, conv: 3.2, budget: 500 },
-        conseil:   { cpc: 0.09, ctr: 28, conv: 3.5, budget: 900 },
-      },
-    },
+
   },
-  sectors: {
-    saas:      "SaaS / Tech",
-    industrie: "Industrie",
-    finance:   "Finance / Banque",
-    immo:      "Immobilier",
-    rh:        "RH / Recrutement",
-    ecom:      "E-commerce",
-    conseil:   "Conseil / Services",
-  },
+  sectors: SECTORS,
 };
 
 // ─── Animated counter ────────────────────────────────────────
@@ -122,7 +79,7 @@ function Num({ value, fmt }) {
 
 // ─── SVG Funnel ──────────────────────────────────────────────
 function Funnel({ stages, color }) {
-  const W = 240, rowH = 66, H = rowH * 3 + 4;
+  const W = 240, rowH = 66, H = rowH * stages.length + 4;
   const max = Math.max(stages[0]?.value || 1, 1);
   const MIN = 52;
   const widths = stages.map(s => MIN + (W - MIN) * Math.sqrt(Math.max(s.value, 0) / max));
@@ -131,7 +88,7 @@ function Funnel({ stages, color }) {
       {stages.map((s, i) => {
         const y = i * rowH;
         const w = widths[i];
-        const wN = i < 2 ? widths[i + 1] : w * 0.6;
+        const wN = i < stages.length - 1 ? widths[i + 1] : w * 0.6;
         const x1 = (W - w) / 2, x2 = (W + w) / 2;
         const x3 = (W + wN) / 2, x4 = (W - wN) / 2;
         const op = 1 - i * 0.22;
@@ -203,12 +160,12 @@ export default function Simulator() {
   const [mode, setMode]       = useState("budget");
   const [budget, setBudget]   = useState(5000);
   const [tLeads, setTLeads]   = useState(50);
-  const [cpc, setCpc]         = useState(8.5);
-  const [ctr, setCtr]         = useState(3.2);
-  const [conv, setConv]       = useState(4.5);
+  const [cpc, setCpc]         = useState(8);
+  const [ctr, setCtr]         = useState(4);
+  const [conv, setConv]       = useState(3.5);
   const [prospect, setProspect] = useState("");
   const [logo, setLogo]       = useState(null);
-  const [shareId, setShareId] = useState(null);
+  const [shareUrl, setShareUrl] = useState("");
   const [copied, setCopied]   = useState(false);
   const [exportMenu, setExportMenu] = useState(false);
   const [exporting, setExporting]   = useState(false);
@@ -229,8 +186,8 @@ export default function Simulator() {
   // Reset defaults when channel/sector changes — useLayoutEffect prevents a visible
   // flash of wrong metrics caused by the old CPC/CTR being used with the new channel.
   useLayoutEffect(() => {
-    const d = ch.sectors[sector];
-    if (d) { setCpc(d.cpc); setCtr(d.ctr); setConv(d.conv); setBudget(d.budget); }
+    const d = getDefaultValues(channel, sector);
+    if (d) { setCpc(d.cpc); setCtr(d.ctr); setConv(d.conversionRate); setBudget(d.budget); }
   }, [channel, sector]);
 
   // Restore state from shared URL on first load
@@ -258,35 +215,15 @@ export default function Simulator() {
   const safeDiv = (a, b) => b > 0 ? a / b : 0;
 
   if (mode === "budget") {
-    if (channel === "seo") {
-      impr   = Math.round(budget * 80);
-      clicks = Math.round(impr * ctr / 100);
-      leads  = Math.round(clicks * conv / 100);
-    } else if (channel === "email") {
-      impr   = Math.round(safeDiv(budget, cpc));
-      clicks = Math.round(impr * ctr / 100);
-      leads  = Math.round(clicks * conv / 100);
-    } else {
-      clicks = Math.round(safeDiv(budget, cpc));
-      impr   = Math.round(safeDiv(clicks, ctr / 100));
-      leads  = Math.round(clicks * conv / 100);
-    }
+    clicks = Math.round(safeDiv(budget, cpc));
+    impr = Math.round(safeDiv(clicks, ctr / 100));
+    leads = Math.round(clicks * conv / 100);
     budgetOut = budget;
   } else {
     leads = tLeads;
-    if (channel === "seo") {
-      clicks    = Math.round(safeDiv(leads, conv / 100));
-      impr      = Math.round(safeDiv(clicks, ctr / 100));
-      budgetOut = Math.round(impr / 80);
-    } else if (channel === "email") {
-      clicks    = Math.round(safeDiv(leads, conv / 100));
-      impr      = Math.round(safeDiv(clicks, ctr / 100));
-      budgetOut = Math.round(impr * cpc);
-    } else {
-      clicks    = Math.round(safeDiv(leads, conv / 100));
-      impr      = Math.round(safeDiv(clicks, ctr / 100));
-      budgetOut = Math.round(clicks * cpc);
-    }
+    clicks = Math.round(safeDiv(leads, conv / 100));
+    impr = Math.round(safeDiv(clicks, ctr / 100));
+    budgetOut = Math.round(clicks * cpc);
   }
   cpl = leads > 0 ? safeDiv(mode === "budget" ? budget : budgetOut, leads) : 0;
 
@@ -382,9 +319,7 @@ export default function Simulator() {
     document.head.appendChild(el);
   }, []);
 
-  const cpcDisplay = channel === "email"
-    ? `${cpc.toFixed(2)} €`
-    : `${cpc.toFixed(1)} €`;
+  const cpcDisplay = `${cpc.toFixed(ch.cpcDigits ?? 1)} €`;
 
   const S = {
     root: { minHeight: "100vh", background: "#0F332B", fontFamily: "'DM Sans',sans-serif", color: "#F6F1E8", position: "relative" },
@@ -566,12 +501,6 @@ export default function Simulator() {
                   step={0.1} onChange={setConv} accent={accent} display={`${conv.toFixed(1)} %`} />
               </div>
 
-              {/* Channel note */}
-              {channel === "seo" && (
-                <div style={{ marginTop: 10, padding: "10px 12px", background: "rgba(255,107,61,0.06)", borderRadius: 8, border: "1px solid rgba(255,107,61,0.15)", fontSize: 10, color: "rgba(255,255,255,0.38)", lineHeight: 1.6 }}>
-                  SEO — Impressions estimées à partir du budget mensuel (contenu + netlinking). Pas de CPC direct.
-                </div>
-              )}
             </div>
 
             {/* RIGHT — Results */}
