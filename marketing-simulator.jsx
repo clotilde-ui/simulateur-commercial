@@ -1,8 +1,6 @@
 import { useState, useEffect, useLayoutEffect, useRef } from "react";
 import { SECTORS, getDefaultValues } from "./src/config/defaults";
 
-const DIRECT_LEAD_CHANNELS = new Set(["seo", "cold-email"]);
-
 const CFG = {
   channels: {
     "google-ads": {
@@ -41,30 +39,7 @@ const CFG = {
       cpcDigits: 1,
       showCtr: true,
     },
-    seo: {
-      label: "SEO",
-      color: "#FF6B3D",
-      funnel: ["Contacts", "Leads"],
-      cpcLabel: "CPL (€)",
-      ctrLabel: "",
-      ctrMax: 0,
-      cpcMax: 120,
-      cpcStep: 1,
-      cpcDigits: 0,
-      showCtr: false,
-    },
-    "cold-email": {
-      label: "Cold Email",
-      color: "#FF6B3D",
-      funnel: ["Contacts", "Leads"],
-      cpcLabel: "CPL (€)",
-      ctrLabel: "",
-      ctrMax: 0,
-      cpcMax: 150,
-      cpcStep: 1,
-      cpcDigits: 0,
-      showCtr: false,
-    },
+
   },
   sectors: SECTORS,
 };
@@ -241,24 +216,15 @@ export default function Simulator() {
   const safeDiv = (a, b) => b > 0 ? a / b : 0;
 
   if (mode === "budget") {
-    if (isDirectLeadChannel) {
-      clicks = Math.round(safeDiv(budget, cpc));
-      leads = Math.round(clicks * conv / 100);
-    } else {
-      clicks = Math.round(safeDiv(budget, cpc));
-      impr = Math.round(safeDiv(clicks, ctr / 100));
-      leads = Math.round(clicks * conv / 100);
-    }
+    clicks = Math.round(safeDiv(budget, cpc));
+    impr = Math.round(safeDiv(clicks, ctr / 100));
+    leads = Math.round(clicks * conv / 100);
     budgetOut = budget;
   } else {
     leads = tLeads;
     clicks = Math.round(safeDiv(leads, conv / 100));
-    if (isDirectLeadChannel) {
-      budgetOut = Math.round(clicks * cpc);
-    } else {
-      impr = Math.round(safeDiv(clicks, ctr / 100));
-      budgetOut = Math.round(clicks * cpc);
-    }
+    impr = Math.round(safeDiv(clicks, ctr / 100));
+    budgetOut = Math.round(clicks * cpc);
   }
   cpl = leads > 0 ? safeDiv(mode === "budget" ? budget : budgetOut, leads) : 0;
 
@@ -543,12 +509,6 @@ export default function Simulator() {
                   step={0.1} onChange={setConv} accent={accent} display={`${conv.toFixed(1)} %`} />
               </div>
 
-              {/* Channel note */}
-              {isDirectLeadChannel && (
-                <div style={{ marginTop: 10, padding: "10px 12px", background: "rgba(255,107,61,0.06)", borderRadius: 8, border: "1px solid rgba(255,107,61,0.15)", fontSize: 10, color: "rgba(255,255,255,0.38)", lineHeight: 1.6 }}>
-                  Canal en CPL direct : le calcul passe par Contacts → Leads (pas d'étape impressions).
-                </div>
-              )}
             </div>
 
             {/* RIGHT — Results */}

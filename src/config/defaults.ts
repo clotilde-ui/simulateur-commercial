@@ -36,24 +36,6 @@ export const CHANNEL_SECTOR_DEFAULTS = {
     ecom: { cpc: 9, ctr: 0.5, conversionRate: 1.5, budget: 4500 },
     conseil: { cpc: 11, ctr: 0.6, conversionRate: 2.5, budget: 9000 },
   },
-  seo: {
-    saas: { cpc: 55, ctr: 0, conversionRate: 30, budget: 2200 },
-    industrie: { cpc: 45, ctr: 0, conversionRate: 25, budget: 1600 },
-    finance: { cpc: 80, ctr: 0, conversionRate: 22, budget: 3000 },
-    immo: { cpc: 50, ctr: 0, conversionRate: 28, budget: 2000 },
-    rh: { cpc: 35, ctr: 0, conversionRate: 30, budget: 1800 },
-    ecom: { cpc: 25, ctr: 0, conversionRate: 32, budget: 1400 },
-    conseil: { cpc: 60, ctr: 0, conversionRate: 24, budget: 2400 },
-  },
-  "cold-email": {
-    saas: { cpc: 70, ctr: 0, conversionRate: 12, budget: 1200 },
-    industrie: { cpc: 65, ctr: 0, conversionRate: 10, budget: 900 },
-    finance: { cpc: 120, ctr: 0, conversionRate: 8, budget: 1500 },
-    immo: { cpc: 90, ctr: 0, conversionRate: 9, budget: 1100 },
-    rh: { cpc: 40, ctr: 0, conversionRate: 14, budget: 850 },
-    ecom: { cpc: 55, ctr: 0, conversionRate: 11, budget: 800 },
-    conseil: { cpc: 85, ctr: 0, conversionRate: 10, budget: 1300 },
-  },
 };
 
 export function getDefaultValues(channel, sector) {
