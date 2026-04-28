@@ -211,6 +211,7 @@ export default function Simulator() {
   }, []);
 
   // ── Funnel computation ────────────────────────────────────
+  const isDirectLeadChannel = DIRECT_LEAD_CHANNELS.has(channel);
   let impr = 0, clicks = 0, leads = 0, cpl = 0, budgetOut = 0;
   const safeDiv = (a, b) => b > 0 ? a / b : 0;
 
@@ -227,11 +228,16 @@ export default function Simulator() {
   }
   cpl = leads > 0 ? safeDiv(mode === "budget" ? budget : budgetOut, leads) : 0;
 
-  const stages = [
-    { label: ch.funnel[0], value: impr },
-    { label: ch.funnel[1], value: clicks },
-    { label: ch.funnel[2], value: leads },
-  ];
+  const stages = isDirectLeadChannel
+    ? [
+      { label: ch.funnel[0], value: clicks },
+      { label: ch.funnel[1], value: leads },
+    ]
+    : [
+      { label: ch.funnel[0], value: impr },
+      { label: ch.funnel[1], value: clicks },
+      { label: ch.funnel[2], value: leads },
+    ];
 
   // ── Export dropdown — close on outside click ──────────────
   useEffect(() => {
@@ -495,8 +501,10 @@ export default function Simulator() {
                   <Slider label={ch.cpcLabel} value={cpc} min={ch.cpcStep} max={ch.cpcMax}
                     step={ch.cpcStep} onChange={setCpc} accent={accent} display={cpcDisplay} />
                 )}
-                <Slider label={ch.ctrLabel} value={ctr} min={0.1} max={ch.ctrMax}
-                  step={0.1} onChange={setCtr} accent={accent} display={`${ctr.toFixed(1)} %`} />
+                {ch.showCtr && (
+                  <Slider label={ch.ctrLabel} value={ctr} min={0.1} max={ch.ctrMax}
+                    step={0.1} onChange={setCtr} accent={accent} display={`${ctr.toFixed(1)} %`} />
+                )}
                 <Slider label="Taux de conversion (%)" value={conv} min={0.1} max={20}
                   step={0.1} onChange={setConv} accent={accent} display={`${conv.toFixed(1)} %`} />
               </div>
@@ -511,14 +519,14 @@ export default function Simulator() {
                   sub={`CPL · ${Math.round(cpl).toLocaleString("fr-FR")} €`} accent={accent} highlight />
                 <KCard label={mode === "budget" ? "Coût par lead" : "Budget requis"} value={mode === "budget" ? cpl : budgetOut} fmt="eur"
                   sub={mode === "budget" ? "par lead qualifié" : "investissement mensuel"} accent={accent} />
-                <KCard label={ch.funnel[1]} value={clicks} fmt="int"
-                  sub={`${ctr.toFixed(1)}% de taux`} accent={accent} />
-                <KCard label={ch.funnel[0]} value={impr} fmt="int"
-                  sub="volume estimé" accent={accent} />
-                <KCard label="Taux impressions → leads" value={impr > 0 ? (leads / impr * 100) : 0} fmt="pct"
-                  sub={`${ch.funnel[0]} → ${ch.funnel[2]}`} accent={accent} />
-                <KCard label="Taux de clics → leads" value={clicks > 0 ? (leads / clicks * 100) : 0} fmt="pctS"
-                  sub={`${ch.funnel[1]} → ${ch.funnel[2]}`} accent={accent} />
+                <KCard label={isDirectLeadChannel ? ch.funnel[0] : ch.funnel[1]} value={clicks} fmt="int"
+                  sub={isDirectLeadChannel ? "volume de contacts" : `${ctr.toFixed(1)}% de taux`} accent={accent} />
+                <KCard label={isDirectLeadChannel ? "Conversion contact → lead" : ch.funnel[0]} value={isDirectLeadChannel ? conv : impr} fmt={isDirectLeadChannel ? "pctS" : "int"}
+                  sub={isDirectLeadChannel ? "taux appliqué" : "volume estimé"} accent={accent} />
+                <KCard label={isDirectLeadChannel ? "Taux contacts → leads" : "Taux impressions → leads"} value={isDirectLeadChannel ? (clicks > 0 ? (leads / clicks * 100) : 0) : (impr > 0 ? (leads / impr * 100) : 0)} fmt="pct"
+                  sub={isDirectLeadChannel ? `${ch.funnel[0]} → ${ch.funnel[1]}` : `${ch.funnel[0]} → ${ch.funnel[2]}`} accent={accent} />
+                <KCard label={isDirectLeadChannel ? "Taux de conversion" : "Taux de clics → leads"} value={clicks > 0 ? (leads / clicks * 100) : 0} fmt="pctS"
+                  sub={isDirectLeadChannel ? `${ch.funnel[0]} → ${ch.funnel[1]}` : `${ch.funnel[1]} → ${ch.funnel[2]}`} accent={accent} />
               </div>
 
               {/* Funnel + bar visualization */}
@@ -566,7 +574,7 @@ export default function Simulator() {
                     {[
                       { l: "Budget", v: `${(mode === "budget" ? budget : budgetOut).toLocaleString("fr-FR")} €` },
                       { l: "CPL", v: `${Math.round(cpl).toLocaleString("fr-FR")} €` },
-                      { l: "Taux impressions → leads", v: `${impr > 0 ? (leads / impr * 100).toFixed(3) : "0.000"} %` },
+                      { l: isDirectLeadChannel ? "Taux contacts → leads" : "Taux impressions → leads", v: `${isDirectLeadChannel ? (clicks > 0 ? (leads / clicks * 100).toFixed(3) : "0.000") : (impr > 0 ? (leads / impr * 100).toFixed(3) : "0.000")} %` },
                     ].map((s, i) => (
                       <div key={i} style={{ flex: 1, textAlign: "center", borderRight: i < 2 ? "1px solid rgba(255,255,255,0.06)" : "none" }}>
                         <div style={{ fontSize: 9, color: "rgba(255,255,255,0.27)", letterSpacing: "0.1em", textTransform: "uppercase", marginBottom: 4 }}>{s.l}</div>
