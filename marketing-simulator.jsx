@@ -211,7 +211,7 @@ export default function Simulator() {
   }, []);
 
   // ── Funnel computation ────────────────────────────────────
-  const isDirectLeadChannel = DIRECT_LEAD_CHANNELS.has(channel);
+  const isDirectLeadChannel = false;
   let impr = 0, clicks = 0, leads = 0, cpl = 0, budgetOut = 0;
   const safeDiv = (a, b) => b > 0 ? a / b : 0;
 
