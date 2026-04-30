@@ -163,6 +163,7 @@ export default function Simulator() {
   const [cpc, setCpc]         = useState(8);
   const [ctr, setCtr]         = useState(4);
   const [conv, setConv]       = useState(3.5);
+  const [panierMoyen, setPanierMoyen] = useState(300);
   const [prospect, setProspect] = useState("");
   const [logo, setLogo]       = useState(null);
   const [shareUrl, setShareUrl] = useState("");
@@ -205,6 +206,7 @@ export default function Simulator() {
         if (d.cpc   >= 0)  setCpc(d.cpc);
         if (d.ctr   > 0)   setCtr(d.ctr);
         if (d.conv  > 0)   setConv(d.conv);
+        if (d.panierMoyen > 0) setPanierMoyen(d.panierMoyen);
         if (d.prospect)    setProspect(d.prospect);
       }
     } catch (_) {}
@@ -227,6 +229,9 @@ export default function Simulator() {
     budgetOut = Math.round(clicks * cpc);
   }
   cpl = leads > 0 ? safeDiv(mode === "budget" ? budget : budgetOut, leads) : 0;
+  const caPotentiel = leads * panierMoyen;
+  const spend = mode === "budget" ? budget : budgetOut;
+  const roi = spend > 0 ? ((caPotentiel - spend) / spend) * 100 : 0;
 
   const stages = isDirectLeadChannel
     ? [
@@ -299,7 +304,7 @@ export default function Simulator() {
 
   // ── Share ─────────────────────────────────────────────────
   const handleShare = async () => {
-    const encoded = btoa(JSON.stringify({ channel, sector, mode, budget, tLeads, cpc, ctr, conv, prospect }));
+    const encoded = btoa(JSON.stringify({ channel, sector, mode, budget, tLeads, cpc, ctr, conv, panierMoyen, prospect }));
     const url = `${window.location.origin}${window.location.pathname}?s=${encoded}`;
     setShareUrl(url);
     try { await navigator.clipboard.writeText(url); } catch (_) {}
@@ -507,12 +512,32 @@ export default function Simulator() {
                 )}
                 <Slider label="Taux de conversion (%)" value={conv} min={0.1} max={20}
                   step={0.1} onChange={setConv} accent={accent} display={`${conv.toFixed(1)} %`} />
+                <div style={{ marginTop: 16, paddingTop: 14, borderTop: "1px solid rgba(255,255,255,0.06)" }}>
+                  <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 6 }}>
+                    <span style={{ fontSize: 11, color: "rgba(255,255,255,0.38)" }}>Panier moyen (€)</span>
+                    <span style={{ fontSize: 11, fontWeight: 600, color: accent }}>{panierMoyen.toLocaleString("fr-FR")} €</span>
+                  </div>
+                  <input type="range" min={1} max={10000} step={1} value={panierMoyen}
+                    onChange={e => setPanierMoyen(Number(e.target.value))}
+                    style={{ width: "100%", accentColor: accent }} />
+                  <input type="number" value={panierMoyen} min={1}
+                    onChange={e => setPanierMoyen(Math.max(1, Number(e.target.value)))}
+                    style={{ marginTop: 6, background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 6, padding: "4px 8px", color: "#F6F1E8", fontSize: 12, width: "100%", outline: "none", fontFamily: "'DM Sans',sans-serif" }} />
+                </div>
               </div>
 
             </div>
 
             {/* RIGHT — Results */}
             <div>
+              {/* Financial KPIs */}
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginBottom: 10 }}>
+                <KCard label="CA potentiel" value={caPotentiel} fmt="eur"
+                  sub={`${leads.toLocaleString("fr-FR")} leads × ${panierMoyen.toLocaleString("fr-FR")} €`} accent={accent} highlight />
+                <KCard label="ROI net" value={roi} fmt="pct"
+                  sub={roi >= 0 ? "retour sur investissement" : "investissement non rentable"} accent={accent} highlight />
+              </div>
+
               {/* 6 KPI cards */}
               <div style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 10, marginBottom: 14 }}>
                 <KCard label={mode === "budget" ? "Leads générés" : "Objectif leads"} value={leads} fmt="int"
