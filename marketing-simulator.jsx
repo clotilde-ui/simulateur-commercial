@@ -79,33 +79,32 @@ function Num({ value, fmt }) {
 
 // ─── SVG Funnel ──────────────────────────────────────────────
 function Funnel({ stages, color }) {
-  const W = 280, rowH = 72, H = rowH * stages.length + 4;
-  const max = Math.max(stages[0]?.value || 1, 1);
-  const MIN = 40;
-  const widths = stages.map(s => MIN + (W - MIN) * (Math.max(s.value, 0) / max));
+  const W = 280, rowH = 72, H = rowH * stages.length;
+  const MIN = 24; // width at the very bottom
+  // Straight sides: width decreases linearly from W (top) to MIN (bottom)
+  const widthAt = y => W - (W - MIN) * (y / H);
   return (
     <svg viewBox={`0 0 ${W} ${H}`} style={{ width: "100%", display: "block" }}>
       {stages.map((s, i) => {
-        const y = i * rowH;
-        const w = widths[i];
-        const wN = i < stages.length - 1 ? widths[i + 1] : w * 0.6;
-        const x1 = (W - w) / 2, x2 = (W + w) / 2;
-        const x3 = (W + wN) / 2, x4 = (W - wN) / 2;
-        const op = 1 - i * 0.22;
+        const y0 = i * rowH, y1 = (i + 1) * rowH;
+        const wTop = widthAt(y0), wBot = widthAt(y1);
+        const x1 = (W - wTop) / 2, x2 = (W + wTop) / 2;
+        const x3 = (W + wBot) / 2, x4 = (W - wBot) / 2;
+        const op = 1 - i * 0.18;
         const ratio = i > 0 && stages[i - 1].value > 0
           ? ((s.value / stages[i - 1].value) * 100).toFixed(1) : null;
         return (
           <g key={i}>
-            <polygon points={`${x1},${y} ${x2},${y} ${x3},${y + rowH} ${x4},${y + rowH}`}
+            <polygon points={`${x1},${y0} ${x2},${y0} ${x3},${y1} ${x4},${y1}`}
               fill={color} fillOpacity={op} />
-            <text x={W / 2} y={y + rowH * 0.36} textAnchor="middle"
+            <text x={W / 2} y={y0 + rowH * 0.36} textAnchor="middle"
               fill="rgba(255,255,255,0.65)" fontSize="9.5" fontWeight="500">{s.label}</text>
-            <text x={W / 2} y={y + rowH * 0.7} textAnchor="middle"
+            <text x={W / 2} y={y0 + rowH * 0.7} textAnchor="middle"
               fill="white" fontSize="13" fontWeight="700">
               {Math.round(s.value).toLocaleString("fr-FR")}
             </text>
             {ratio && (
-              <text x={W - 4} y={y + 11} textAnchor="end"
+              <text x={W - 4} y={y0 + 11} textAnchor="end"
                 fill={color} fontSize="8.5" fontWeight="600" opacity="0.9">↓ {ratio}%</text>
             )}
           </g>
