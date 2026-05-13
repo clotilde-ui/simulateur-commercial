@@ -172,6 +172,7 @@ export default function Simulator() {
   const [closing, setClosing]         = useState(20);
   const [prospect, setProspect] = useState("");
   const [logo, setLogo]       = useState(null);
+  const [website, setWebsite] = useState("");
   const [shareUrl, setShareUrl] = useState("");
   const [copied, setCopied]   = useState(false);
   const [exportMenu, setExportMenu] = useState(false);
@@ -215,6 +216,7 @@ export default function Simulator() {
         if (d.panierMoyen > 0) setPanierMoyen(d.panierMoyen);
         if (d.closing > 0)     setClosing(d.closing);
         if (d.prospect)    setProspect(d.prospect);
+        if (d.website)     { setWebsite(d.website); fetchLogoFromWebsite(d.website); }
       }
     } catch (_) {}
   }, []);
@@ -314,7 +316,7 @@ export default function Simulator() {
 
   // ── Share ─────────────────────────────────────────────────
   const handleShare = async () => {
-    const encoded = btoa(JSON.stringify({ channel, sector, mode, budget, tLeads, cpc, ctr, conv, panierMoyen, closing, prospect }));
+    const encoded = btoa(JSON.stringify({ channel, sector, mode, budget, tLeads, cpc, ctr, conv, panierMoyen, closing, prospect, website }));
     const url = `${window.location.origin}${window.location.pathname}?s=${encoded}`;
     setShareUrl(url);
     try { await navigator.clipboard.writeText(url); } catch (_) {}
@@ -329,6 +331,21 @@ export default function Simulator() {
     const r = new FileReader();
     r.onload = ev => setLogo(ev.target.result);
     r.readAsDataURL(f);
+  };
+
+  const fetchLogoFromWebsite = (url) => {
+    if (!url) return;
+    let domain;
+    try {
+      domain = new URL(url.startsWith("http") ? url : `https://${url}`).hostname.replace(/^www\./, "");
+    } catch {
+      domain = url.replace(/^www\./, "").split("/")[0];
+    }
+    if (!domain) return;
+    const img = new Image();
+    img.onload = () => setLogo(`https://logo.clearbit.com/${domain}`);
+    img.onerror = () => setLogo(`https://www.google.com/s2/favicons?domain=${domain}&sz=128`);
+    img.src = `https://logo.clearbit.com/${domain}`;
   };
 
   // Inject Google Fonts
@@ -375,7 +392,12 @@ export default function Simulator() {
             <input type="file" ref={logoRef} accept="image/*" onChange={handleLogo} style={{ display: "none" }} />
             <div>
               <input value={prospect} onChange={e => setProspect(e.target.value)} placeholder="Nom du prospect…"
-                style={{ background: "transparent", border: "none", outline: "none", fontFamily: "'Manrope',sans-serif", fontWeight: 700, fontSize: 14, color: "#F6F1E8", width: 200 }} />
+                style={{ background: "transparent", border: "none", outline: "none", fontFamily: "'Manrope',sans-serif", fontWeight: 700, fontSize: 14, color: "#F6F1E8", width: 200, display: "block" }} />
+              <input value={website} onChange={e => setWebsite(e.target.value)}
+                onBlur={e => fetchLogoFromWebsite(e.target.value)}
+                onKeyDown={e => e.key === "Enter" && fetchLogoFromWebsite(website)}
+                placeholder="Site internet…"
+                style={{ background: "transparent", border: "none", outline: "none", fontFamily: "'DM Sans',sans-serif", fontSize: 11, color: "rgba(255,255,255,0.38)", width: 200, display: "block", marginTop: 2 }} />
               <div style={{ fontSize: 9, color: "rgba(255,255,255,0.25)", letterSpacing: "0.08em", marginTop: 1 }}>
                 {CFG.sectors[sector]} · {ch.label}
               </div>
