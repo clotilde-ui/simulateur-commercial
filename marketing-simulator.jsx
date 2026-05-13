@@ -170,6 +170,7 @@ export default function Simulator() {
   const [ctr, setCtr]         = useState(4);
   const [conv, setConv]       = useState(3.5);
   const [panierMoyen, setPanierMoyen] = useState(300);
+  const [closing, setClosing]         = useState(20);
   const [prospect, setProspect] = useState("");
   const [logo, setLogo]       = useState(null);
   const [shareUrl, setShareUrl] = useState("");
@@ -213,6 +214,7 @@ export default function Simulator() {
         if (d.ctr   > 0)   setCtr(d.ctr);
         if (d.conv  > 0)   setConv(d.conv);
         if (d.panierMoyen > 0) setPanierMoyen(d.panierMoyen);
+        if (d.closing > 0)     setClosing(d.closing);
         if (d.prospect)    setProspect(d.prospect);
       }
     } catch (_) {}
@@ -235,7 +237,8 @@ export default function Simulator() {
     budgetOut = Math.round(clicks * cpc);
   }
   cpl = leads > 0 ? safeDiv(mode === "budget" ? budget : budgetOut, leads) : 0;
-  const caPotentiel = leads * panierMoyen;
+  const clients     = Math.round(leads * closing / 100);
+  const caPotentiel = clients * panierMoyen;
   const spend = mode === "budget" ? budget : budgetOut;
   const roi = spend > 0 ? ((caPotentiel - spend) / spend) * 100 : 0;
 
@@ -243,11 +246,13 @@ export default function Simulator() {
     ? [
       { label: ch.funnel[0], value: clicks },
       { label: ch.funnel[1], value: leads },
+      { label: "Clients", value: clients },
     ]
     : [
       { label: ch.funnel[0], value: impr },
       { label: ch.funnel[1], value: clicks },
       { label: ch.funnel[2], value: leads },
+      { label: "Clients", value: clients },
     ];
 
   // ── Export dropdown — close on outside click ──────────────
@@ -310,7 +315,7 @@ export default function Simulator() {
 
   // ── Share ─────────────────────────────────────────────────
   const handleShare = async () => {
-    const encoded = btoa(JSON.stringify({ channel, sector, mode, budget, tLeads, cpc, ctr, conv, panierMoyen, prospect }));
+    const encoded = btoa(JSON.stringify({ channel, sector, mode, budget, tLeads, cpc, ctr, conv, panierMoyen, closing, prospect }));
     const url = `${window.location.origin}${window.location.pathname}?s=${encoded}`;
     setShareUrl(url);
     try { await navigator.clipboard.writeText(url); } catch (_) {}
@@ -530,6 +535,9 @@ export default function Simulator() {
                 <Slider label="Taux de conversion (%)" value={conv} min={0.1} max={20}
                   step={0.1} onChange={setConv} accent={accent} display={`${conv.toFixed(1)} %`}
                   labelColor="rgba(0,0,0,0.45)" trackBg="rgba(0,0,0,0.1)" />
+                <Slider label="Taux de closing (%)" value={closing} min={1} max={100}
+                  step={0.5} onChange={setClosing} accent={accent} display={`${closing.toFixed(1)} %`}
+                  labelColor="rgba(0,0,0,0.45)" trackBg="rgba(0,0,0,0.1)" />
                 <div style={{ marginTop: 16, paddingTop: 14, borderTop: "1px solid rgba(0,0,0,0.08)" }}>
                   <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 6 }}>
                     <span style={{ fontSize: 11, color: "rgba(0,0,0,0.45)" }}>Panier moyen (€)</span>
@@ -552,7 +560,7 @@ export default function Simulator() {
               {/* Financial KPIs */}
               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginBottom: 10 }}>
                 <KCard label="CA potentiel" value={caPotentiel} fmt="eur"
-                  sub={`${leads.toLocaleString("fr-FR")} leads × ${panierMoyen.toLocaleString("fr-FR")} €`} accent={accent} highlight />
+                  sub={`${clients.toLocaleString("fr-FR")} clients × ${panierMoyen.toLocaleString("fr-FR")} €`} accent={accent} highlight />
                 <KCard label="ROI net" value={roi} fmt="pct"
                   sub={roi >= 0 ? "retour sur investissement" : "investissement non rentable"} accent={accent} highlight />
               </div>
