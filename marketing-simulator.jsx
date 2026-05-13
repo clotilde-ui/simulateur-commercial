@@ -444,32 +444,31 @@ export default function Simulator() {
             </div>
           </div>
 
-          {/* Selectors row */}
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 20, marginBottom: 24 }}>
-            <div>
-              <div style={S.label}>Canal d'acquisition</div>
-              <div style={{ display: "flex", gap: 7, flexWrap: "wrap" }}>
-                {Object.entries(CFG.channels).map(([k, c]) => (
-                  <button key={k} onClick={() => setChannel(k)} style={S.chBtn(channel === k, c.color)}>{c.label}</button>
-                ))}
-              </div>
-            </div>
-            <div>
-              <div style={S.label}>Secteur d'activité</div>
-              <div style={{ display: "flex", gap: 7, flexWrap: "wrap" }}>
-                {Object.entries(CFG.sectors).map(([k, l]) => (
-                  <button key={k} onClick={() => setSector(k)} style={S.pill(sector === k)}>{l}</button>
-                ))}
-              </div>
-            </div>
-          </div>
-
           {/* Main 2-col layout */}
-          <div style={{ display: "grid", gridTemplateColumns: "290px 1fr", gap: 0, alignItems: "stretch", borderRadius: 14, overflow: "hidden", border: "1px solid rgba(255,255,255,0.07)" }}>
+          <div style={{ display: "grid", gridTemplateColumns: "310px 1fr", gap: 0, alignItems: "stretch", borderRadius: 14, overflow: "hidden", border: "1px solid rgba(255,255,255,0.1)" }}>
 
             {/* LEFT — Controls */}
-            <div style={{ background: "rgba(0,0,0,0.25)", padding: "20px 18px", borderRight: "1px solid rgba(255,255,255,0.07)" }}>
-              <div style={{ fontSize: 9, fontWeight: 700, letterSpacing: "0.16em", textTransform: "uppercase", color: "rgba(255,255,255,0.35)", marginBottom: 18, paddingBottom: 12, borderBottom: "1px solid rgba(255,255,255,0.07)" }}>Paramètres</div>
+            <div style={{ background: "rgba(0,0,0,0.45)", padding: "20px 18px", borderRight: "2px solid rgba(255,255,255,0.1)" }}>
+              <div style={{ fontSize: 9, fontWeight: 700, letterSpacing: "0.16em", textTransform: "uppercase", color: "rgba(255,255,255,0.4)", marginBottom: 18, paddingBottom: 12, borderBottom: "1px solid rgba(255,255,255,0.08)" }}>Paramètres</div>
+
+              {/* Selectors */}
+              <div style={{ marginBottom: 18 }}>
+                <div style={S.label}>Canal d'acquisition</div>
+                <div style={{ display: "flex", gap: 7, flexWrap: "wrap", marginBottom: 14 }}>
+                  {Object.entries(CFG.channels).map(([k, c]) => (
+                    <button key={k} onClick={() => setChannel(k)} style={S.chBtn(channel === k, c.color)}>{c.label}</button>
+                  ))}
+                </div>
+                <div style={S.label}>Secteur d'activité</div>
+                <div style={{ display: "flex", gap: 7, flexWrap: "wrap" }}>
+                  {Object.entries(CFG.sectors).map(([k, l]) => (
+                    <button key={k} onClick={() => setSector(k)} style={S.pill(sector === k)}>{l}</button>
+                  ))}
+                </div>
+              </div>
+
+              <div style={{ borderTop: "1px solid rgba(255,255,255,0.07)", marginBottom: 14 }} />
+
               {/* Mode toggle */}
               <div style={{ background: "rgba(255,255,255,0.04)", borderRadius: 9, padding: 4, display: "flex", marginBottom: 14, border: "1px solid rgba(255,255,255,0.07)" }}>
                 {[["budget", "Budget → Leads"], ["leads", "Leads → Budget"]].map(([m, l]) => (
@@ -530,7 +529,7 @@ export default function Simulator() {
             </div>
 
             {/* RIGHT — Results */}
-            <div style={{ background: "rgba(255,255,255,0.02)", padding: "20px 22px" }}>
+            <div style={{ background: "rgba(255,255,255,0.04)", padding: "20px 22px" }}>
               <div style={{ fontSize: 9, fontWeight: 700, letterSpacing: "0.16em", textTransform: "uppercase", color: "rgba(255,255,255,0.35)", marginBottom: 18, paddingBottom: 12, borderBottom: "1px solid rgba(255,255,255,0.07)" }}>Résultats</div>
               {/* Financial KPIs */}
               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginBottom: 10 }}>
