@@ -52,6 +52,68 @@ export const CONVERSION_SUPPORTS = {
   site: { label: "Site internet", conversionRate: 2.5 },
 };
 
+// Type de business : adapte la terminologie et la logique de conversion.
+//  - urgence    : contact principalement par appel (serrurier, dépannage…)
+//  - lead       : formulaire classique → lead qualifié, puis closing commercial
+//  - ecommerce  : logique panier, la conversion EST une vente (pas de closing)
+export const BUSINESS_TYPES = {
+  urgence: {
+    label: "Business d'urgence",
+    hint: "serrurier, dépannage…",
+    priorityContact: "Appel téléphonique",
+    defaultContact: "appel",
+    conversionStage: "Appels",
+    generatedLabel: "Appels générés",
+    objectiveLabel: "Objectif appels",
+    contactCostLabel: "Coût par appel",
+    cplShort: "CPA",
+    volumeNote: "par appel reçu",
+    finalStage: "Clients",
+    finalSingular: "client",
+    hasClosing: true,
+    closingLabel: "Taux de transformation (%)",
+  },
+  lead: {
+    label: "Lead",
+    hint: "formulaire classique",
+    priorityContact: "Formulaire / Lead",
+    defaultContact: "formulaire",
+    conversionStage: "Leads",
+    generatedLabel: "Leads générés",
+    objectiveLabel: "Objectif leads",
+    contactCostLabel: "Coût par lead",
+    cplShort: "CPL",
+    volumeNote: "par lead qualifié",
+    finalStage: "Clients",
+    finalSingular: "client",
+    hasClosing: true,
+    closingLabel: "Taux de closing (%)",
+  },
+  ecommerce: {
+    label: "E-commerce",
+    hint: "logique panier",
+    priorityContact: "Achat en ligne (panier)",
+    defaultContact: "formulaire",
+    conversionStage: "Commandes",
+    generatedLabel: "Commandes générées",
+    objectiveLabel: "Objectif commandes",
+    contactCostLabel: "Coût par commande",
+    cplShort: "CPA",
+    volumeNote: "par commande",
+    finalStage: "Ventes",
+    finalSingular: "vente",
+    hasClosing: false,
+    closingLabel: null,
+  },
+};
+
+// Type de contact : canal d'entrée du prospect. Pré-rempli selon le type de
+// business (cf. defaultContact ci-dessus) mais modifiable manuellement.
+export const CONTACT_TYPES = {
+  formulaire: { label: "Formulaire" },
+  appel: { label: "Appel téléphonique" },
+};
+
 export function getSupportConversionRate(support) {
   return CONVERSION_SUPPORTS[support]?.conversionRate ?? null;
 }
