@@ -1,5 +1,5 @@
 import { useState, useEffect, useLayoutEffect, useRef } from "react";
-import { SECTORS, getDefaultValues, CONVERSION_SUPPORTS, getSupportConversionRate } from "./src/config/defaults";
+import { SECTORS, getDefaultValues, CONVERSION_SUPPORTS, getSupportConversionRate, BUSINESS_TYPES } from "./src/config/defaults";
 
 const CFG = {
   channels: {
@@ -182,6 +182,7 @@ export default function Simulator() {
   const [ctr, setCtr]         = useState(4);
   const [conv, setConv]       = useState(3.5);
   const [support, setSupport] = useState("landing");
+  const [businessType, setBusinessType] = useState("lead");
   const [panierMoyen, setPanierMoyen] = useState(300);
   const [closing, setClosing]         = useState(20);
   const [prospect, setProspect] = useState("");
@@ -193,6 +194,7 @@ export default function Simulator() {
   const [exporting, setExporting]   = useState(false);
 
   const ch     = CFG.channels[channel];
+  const biz    = BUSINESS_TYPES[businessType];
   const accent = ch.color;
 
   const contentRef   = useRef();
@@ -228,6 +230,7 @@ export default function Simulator() {
         if (d.ctr   > 0)   setCtr(d.ctr);
         if (d.conv  > 0)   setConv(d.conv);
         if (CONVERSION_SUPPORTS[d.support]) setSupport(d.support);
+        if (BUSINESS_TYPES[d.businessType]) setBusinessType(d.businessType);
         if (d.panierMoyen > 0) setPanierMoyen(d.panierMoyen);
         if (d.closing > 0)     setClosing(d.closing);
         if (d.prospect)    setProspect(d.prospect);
@@ -237,7 +240,6 @@ export default function Simulator() {
   }, []);
 
   // ── Funnel computation ────────────────────────────────────
-  const isDirectLeadChannel = false;
   let impr = 0, clicks = 0, leads = 0, cpl = 0, budgetOut = 0;
   const safeDiv = (a, b) => b > 0 ? a / b : 0;
 
@@ -253,23 +255,18 @@ export default function Simulator() {
     budgetOut = Math.round(clicks * cpc);
   }
   cpl = leads > 0 ? safeDiv(mode === "budget" ? budget : budgetOut, leads) : 0;
-  const clients     = Math.round(leads * closing / 100);
+  // En e-commerce la conversion EST une vente : pas d'étape de closing distincte.
+  const clients     = biz.hasClosing ? Math.round(leads * closing / 100) : leads;
   const caPotentiel = clients * panierMoyen;
   const spend = mode === "budget" ? budget : budgetOut;
   const roi = spend > 0 ? caPotentiel / spend : 0;
 
-  const stages = isDirectLeadChannel
-    ? [
-      { label: ch.funnel[0], value: clicks },
-      { label: ch.funnel[1], value: leads },
-      { label: "Clients", value: clients },
-    ]
-    : [
-      { label: ch.funnel[0], value: impr },
-      { label: ch.funnel[1], value: clicks },
-      { label: ch.funnel[2], value: leads },
-      { label: "Clients", value: clients },
-    ];
+  const stages = [
+    { label: ch.funnel[0], value: impr },
+    { label: ch.funnel[1], value: clicks },
+    { label: biz.conversionStage, value: leads },
+    ...(biz.hasClosing ? [{ label: biz.finalStage, value: clients }] : []),
+  ];
 
   // ── Export dropdown — close on outside click ──────────────
   useEffect(() => {
@@ -331,7 +328,7 @@ export default function Simulator() {
 
   // ── Share ─────────────────────────────────────────────────
   const handleShare = async () => {
-    const encoded = btoa(JSON.stringify({ channel, sector, mode, budget, tLeads, cpc, ctr, conv, support, panierMoyen, closing, prospect, website }));
+    const encoded = btoa(JSON.stringify({ channel, sector, mode, budget, tLeads, cpc, ctr, conv, support, businessType, panierMoyen, closing, prospect, website }));
     const url = `${window.location.origin}${window.location.pathname}?s=${encoded}`;
     setShareUrl(url);
     try { await navigator.clipboard.writeText(url); } catch (_) {}
@@ -522,9 +519,29 @@ export default function Simulator() {
 
               <div style={{ borderTop: "1px solid rgba(0,0,0,0.08)", marginBottom: 14 }} />
 
+              {/* Type de business */}
+              <div style={{ marginBottom: 16 }}>
+                <div style={{ ...S.label, color: "rgba(0,0,0,0.4)" }}>Type de business</div>
+                <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                  {Object.entries(BUSINESS_TYPES).map(([k, b]) => (
+                    <button key={k} onClick={() => setBusinessType(k)} style={{
+                      display: "flex", flexDirection: "column", alignItems: "flex-start", gap: 2,
+                      padding: "8px 10px", borderRadius: 8, cursor: "pointer", textAlign: "left",
+                      fontFamily: "'DM Sans',sans-serif", transition: "all 0.15s",
+                      ...(businessType === k
+                        ? { background: accent, border: `1px solid ${accent}`, color: "#fff" }
+                        : { background: "rgba(0,0,0,0.05)", border: "1px solid rgba(0,0,0,0.12)", color: "rgba(0,0,0,0.55)" }),
+                    }}>
+                      <span style={{ fontSize: 12, fontWeight: 600 }}>{b.label}</span>
+                      <span style={{ fontSize: 10, opacity: 0.8 }}>{b.hint} · {b.priorityContact}</span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+
               {/* Mode toggle */}
               <div style={{ background: "rgba(0,0,0,0.06)", borderRadius: 9, padding: 4, display: "flex", marginBottom: 14, border: "1px solid rgba(0,0,0,0.1)" }}>
-                {[["budget", "Budget → Leads"], ["leads", "Leads → Budget"]].map(([m, l]) => (
+                {[["budget", `Budget → ${biz.conversionStage}`], ["leads", `${biz.conversionStage} → Budget`]].map(([m, l]) => (
                   <button key={m} onClick={() => setMode(m)} style={{
                     ...S.modeBtn(mode === m, accent),
                     ...(mode !== m ? { color: "rgba(0,0,0,0.45)" } : {}),
@@ -545,7 +562,7 @@ export default function Simulator() {
                   </>
                 ) : (
                   <>
-                    <div style={{ fontSize: 10, color: "rgba(0,0,0,0.4)", marginBottom: 5 }}>Objectif leads / mois</div>
+                    <div style={{ fontSize: 10, color: "rgba(0,0,0,0.4)", marginBottom: 5 }}>{`${biz.objectiveLabel} / mois`}</div>
                     <input type="number" value={tLeads} onChange={e => setTLeads(Math.min(500, Math.max(1, Number(e.target.value))))}
                       style={{ background: "transparent", border: "none", outline: "none", fontFamily: "'Manrope',sans-serif", fontWeight: 800, fontSize: 34, color: "#0F332B", letterSpacing: "-0.03em", width: "100%" }} />
                     <input type="range" min={1} max={500} step={1} value={tLeads}
@@ -586,9 +603,11 @@ export default function Simulator() {
                 <Slider label="Taux de conversion (%)" value={conv} min={0.1} max={20}
                   step={0.1} onChange={setConv} accent={accent} display={`${conv.toFixed(1)} %`}
                   labelColor="rgba(0,0,0,0.45)" trackBg="rgba(0,0,0,0.1)" />
-                <Slider label="Taux de closing (%)" value={closing} min={1} max={100}
-                  step={0.5} onChange={setClosing} accent={accent} display={`${closing.toFixed(1)} %`}
-                  labelColor="rgba(0,0,0,0.45)" trackBg="rgba(0,0,0,0.1)" />
+                {biz.hasClosing && (
+                  <Slider label={biz.closingLabel} value={closing} min={1} max={100}
+                    step={0.5} onChange={setClosing} accent={accent} display={`${closing.toFixed(1)} %`}
+                    labelColor="rgba(0,0,0,0.45)" trackBg="rgba(0,0,0,0.1)" />
+                )}
                 <div style={{ marginTop: 16, paddingTop: 14, borderTop: "1px solid rgba(0,0,0,0.08)" }}>
                   <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 6 }}>
                     <span style={{ fontSize: 11, color: "rgba(0,0,0,0.45)" }}>Panier moyen (€)</span>
@@ -611,25 +630,25 @@ export default function Simulator() {
               {/* Financial KPIs */}
               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginBottom: 10 }}>
                 <KCard label="CA potentiel" value={caPotentiel} fmt="eur"
-                  sub={`${clients.toLocaleString("fr-FR")} clients × ${panierMoyen.toLocaleString("fr-FR")} €`} accent={accent} highlight />
+                  sub={`${clients.toLocaleString("fr-FR")} ${biz.finalSingular}${clients > 1 ? "s" : ""} × ${panierMoyen.toLocaleString("fr-FR")} €`} accent={accent} highlight />
                 <KCard label="ROI" value={roi} fmt="coef"
                   sub={roi >= 1 ? "retour sur investissement" : "investissement non rentable"} accent={accent} highlight />
               </div>
 
               {/* 6 KPI cards */}
               <div style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 10, marginBottom: 14 }}>
-                <KCard label={mode === "budget" ? "Leads générés" : "Objectif leads"} value={leads} fmt="int"
-                  sub={`CPL · ${Math.round(cpl).toLocaleString("fr-FR")} €`} accent={accent} highlight />
-                <KCard label={mode === "budget" ? "Coût par lead" : "Budget requis"} value={mode === "budget" ? cpl : budgetOut} fmt="eur"
-                  sub={mode === "budget" ? "par lead qualifié" : "investissement mensuel"} accent={accent} />
-                <KCard label={isDirectLeadChannel ? ch.funnel[0] : ch.funnel[1]} value={clicks} fmt="int"
-                  sub={isDirectLeadChannel ? "volume de contacts" : `${ctr.toFixed(1)}% de taux`} accent={accent} />
-                <KCard label={isDirectLeadChannel ? "Conversion contact → lead" : ch.funnel[0]} value={isDirectLeadChannel ? conv : impr} fmt={isDirectLeadChannel ? "pctS" : "int"}
-                  sub={isDirectLeadChannel ? "taux appliqué" : "volume estimé"} accent={accent} />
-                <KCard label={isDirectLeadChannel ? "Taux contacts → leads" : "Taux impressions → leads"} value={isDirectLeadChannel ? (clicks > 0 ? (leads / clicks * 100) : 0) : (impr > 0 ? (leads / impr * 100) : 0)} fmt="pct"
-                  sub={isDirectLeadChannel ? `${ch.funnel[0]} → ${ch.funnel[1]}` : `${ch.funnel[0]} → ${ch.funnel[2]}`} accent={accent} />
-                <KCard label={isDirectLeadChannel ? "Taux de conversion" : "Taux de clics → leads"} value={clicks > 0 ? (leads / clicks * 100) : 0} fmt="pctS"
-                  sub={isDirectLeadChannel ? `${ch.funnel[0]} → ${ch.funnel[1]}` : `${ch.funnel[1]} → ${ch.funnel[2]}`} accent={accent} />
+                <KCard label={mode === "budget" ? biz.generatedLabel : biz.objectiveLabel} value={leads} fmt="int"
+                  sub={`${biz.cplShort} · ${Math.round(cpl).toLocaleString("fr-FR")} €`} accent={accent} highlight />
+                <KCard label={mode === "budget" ? biz.contactCostLabel : "Budget requis"} value={mode === "budget" ? cpl : budgetOut} fmt="eur"
+                  sub={mode === "budget" ? biz.volumeNote : "investissement mensuel"} accent={accent} />
+                <KCard label={ch.funnel[1]} value={clicks} fmt="int"
+                  sub={`${ctr.toFixed(1)}% de taux`} accent={accent} />
+                <KCard label={ch.funnel[0]} value={impr} fmt="int"
+                  sub="volume estimé" accent={accent} />
+                <KCard label={`Taux ${ch.funnel[0].toLowerCase()} → ${biz.conversionStage.toLowerCase()}`} value={impr > 0 ? (leads / impr * 100) : 0} fmt="pct"
+                  sub={`${ch.funnel[0]} → ${biz.conversionStage}`} accent={accent} />
+                <KCard label={`Taux ${ch.funnel[1].toLowerCase()} → ${biz.conversionStage.toLowerCase()}`} value={clicks > 0 ? (leads / clicks * 100) : 0} fmt="pctS"
+                  sub={`${ch.funnel[1]} → ${biz.conversionStage}`} accent={accent} />
               </div>
 
               {/* Funnel + bar visualization */}
@@ -676,8 +695,8 @@ export default function Simulator() {
                   <div style={{ marginTop: 20, paddingTop: 14, borderTop: "1px solid rgba(255,255,255,0.06)", display: "flex", gap: 0 }}>
                     {[
                       { l: "Budget", v: `${(mode === "budget" ? budget : budgetOut).toLocaleString("fr-FR")} €` },
-                      { l: "CPL", v: `${Math.round(cpl).toLocaleString("fr-FR")} €` },
-                      { l: isDirectLeadChannel ? "Taux contacts → leads" : "Taux impressions → leads", v: `${isDirectLeadChannel ? (clicks > 0 ? (leads / clicks * 100).toFixed(3) : "0.000") : (impr > 0 ? (leads / impr * 100).toFixed(3) : "0.000")} %` },
+                      { l: biz.cplShort, v: `${Math.round(cpl).toLocaleString("fr-FR")} €` },
+                      { l: `Taux ${ch.funnel[0].toLowerCase()} → ${biz.conversionStage.toLowerCase()}`, v: `${impr > 0 ? (leads / impr * 100).toFixed(3) : "0.000"} %` },
                     ].map((s, i) => (
                       <div key={i} style={{ flex: 1, textAlign: "center", borderRight: i < 2 ? "1px solid rgba(255,255,255,0.06)" : "none" }}>
                         <div style={{ fontSize: 9, color: "rgba(255,255,255,0.27)", letterSpacing: "0.1em", textTransform: "uppercase", marginBottom: 4 }}>{s.l}</div>
