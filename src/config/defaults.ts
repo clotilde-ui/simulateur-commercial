@@ -61,6 +61,7 @@ export const BUSINESS_TYPES = {
     label: "Business d'urgence",
     hint: "serrurier, dépannage…",
     priorityContact: "Appel téléphonique",
+    defaultContact: "appel",
     conversionStage: "Appels",
     generatedLabel: "Appels générés",
     objectiveLabel: "Objectif appels",
@@ -76,6 +77,7 @@ export const BUSINESS_TYPES = {
     label: "Lead",
     hint: "formulaire classique",
     priorityContact: "Formulaire / Lead",
+    defaultContact: "formulaire",
     conversionStage: "Leads",
     generatedLabel: "Leads générés",
     objectiveLabel: "Objectif leads",
@@ -91,6 +93,7 @@ export const BUSINESS_TYPES = {
     label: "E-commerce",
     hint: "logique panier",
     priorityContact: "Achat en ligne (panier)",
+    defaultContact: "formulaire",
     conversionStage: "Commandes",
     generatedLabel: "Commandes générées",
     objectiveLabel: "Objectif commandes",
@@ -102,6 +105,13 @@ export const BUSINESS_TYPES = {
     hasClosing: false,
     closingLabel: null,
   },
+};
+
+// Type de contact : canal d'entrée du prospect. Pré-rempli selon le type de
+// business (cf. defaultContact ci-dessus) mais modifiable manuellement.
+export const CONTACT_TYPES = {
+  formulaire: { label: "Formulaire" },
+  appel: { label: "Appel téléphonique" },
 };
 
 export function getSupportConversionRate(support) {

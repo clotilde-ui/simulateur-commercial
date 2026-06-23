@@ -1,5 +1,5 @@
 import { useState, useEffect, useLayoutEffect, useRef } from "react";
-import { SECTORS, getDefaultValues, CONVERSION_SUPPORTS, getSupportConversionRate, BUSINESS_TYPES } from "./src/config/defaults";
+import { SECTORS, getDefaultValues, CONVERSION_SUPPORTS, getSupportConversionRate, BUSINESS_TYPES, CONTACT_TYPES } from "./src/config/defaults";
 
 const CFG = {
   channels: {
@@ -183,6 +183,7 @@ export default function Simulator() {
   const [conv, setConv]       = useState(3.5);
   const [support, setSupport] = useState("landing");
   const [businessType, setBusinessType] = useState("lead");
+  const [contactType, setContactType] = useState(BUSINESS_TYPES.lead.defaultContact);
   const [panierMoyen, setPanierMoyen] = useState(300);
   const [closing, setClosing]         = useState(20);
   const [prospect, setProspect] = useState("");
@@ -231,6 +232,7 @@ export default function Simulator() {
         if (d.conv  > 0)   setConv(d.conv);
         if (CONVERSION_SUPPORTS[d.support]) setSupport(d.support);
         if (BUSINESS_TYPES[d.businessType]) setBusinessType(d.businessType);
+        if (CONTACT_TYPES[d.contactType]) setContactType(d.contactType);
         if (d.panierMoyen > 0) setPanierMoyen(d.panierMoyen);
         if (d.closing > 0)     setClosing(d.closing);
         if (d.prospect)    setProspect(d.prospect);
@@ -328,7 +330,7 @@ export default function Simulator() {
 
   // ── Share ─────────────────────────────────────────────────
   const handleShare = async () => {
-    const encoded = btoa(JSON.stringify({ channel, sector, mode, budget, tLeads, cpc, ctr, conv, support, businessType, panierMoyen, closing, prospect, website }));
+    const encoded = btoa(JSON.stringify({ channel, sector, mode, budget, tLeads, cpc, ctr, conv, support, businessType, contactType, panierMoyen, closing, prospect, website }));
     const url = `${window.location.origin}${window.location.pathname}?s=${encoded}`;
     setShareUrl(url);
     try { await navigator.clipboard.writeText(url); } catch (_) {}
@@ -524,7 +526,7 @@ export default function Simulator() {
                 <div style={{ ...S.label, color: "rgba(0,0,0,0.4)" }}>Type de business</div>
                 <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
                   {Object.entries(BUSINESS_TYPES).map(([k, b]) => (
-                    <button key={k} onClick={() => setBusinessType(k)} style={{
+                    <button key={k} onClick={() => { setBusinessType(k); setContactType(b.defaultContact); }} style={{
                       display: "flex", flexDirection: "column", alignItems: "flex-start", gap: 2,
                       padding: "8px 10px", borderRadius: 8, cursor: "pointer", textAlign: "left",
                       fontFamily: "'DM Sans',sans-serif", transition: "all 0.15s",
@@ -535,6 +537,23 @@ export default function Simulator() {
                       <span style={{ fontSize: 12, fontWeight: 600 }}>{b.label}</span>
                       <span style={{ fontSize: 10, opacity: 0.8 }}>{b.hint} · {b.priorityContact}</span>
                     </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Type de contact (pré-rempli selon le type de business) */}
+              <div style={{ marginBottom: 16 }}>
+                <div style={{ ...S.label, color: "rgba(0,0,0,0.4)" }}>Type de contact</div>
+                <div style={{ display: "flex", gap: 6 }}>
+                  {Object.entries(CONTACT_TYPES).map(([k, c]) => (
+                    <button key={k} onClick={() => setContactType(k)} style={{
+                      flex: 1, padding: "8px 6px", borderRadius: 8, cursor: "pointer",
+                      fontFamily: "'DM Sans',sans-serif", fontSize: 11, fontWeight: 600,
+                      transition: "all 0.15s",
+                      ...(contactType === k
+                        ? { background: accent, border: `1px solid ${accent}`, color: "#fff" }
+                        : { background: "rgba(0,0,0,0.05)", border: "1px solid rgba(0,0,0,0.12)", color: "rgba(0,0,0,0.5)" }),
+                    }}>{c.label}</button>
                   ))}
                 </div>
               </div>
