@@ -426,12 +426,19 @@ export default function Simulator({ onOpenBackOffice }) {
     saveTracking(store);
 
     const start = Date.now();
+    // Identifiant de visite stable, pour mettre à jour la même visite côté serveur.
+    const visitId = `${Date.now().toString(36)}${Math.random().toString(36).slice(2, 8)}`;
+    const postVisit = () => {
+      fetch("/api/report-visit", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ linkId, visitId, duration: Math.round((Date.now() - start) / 1000) }),
+      }).catch(() => {});
+    };
     const update = () => {
       const s = loadTracking();
       const v = s[linkId]?.visits?.[visitIndex];
-      if (!v) return;
-      v.duration = Math.round((Date.now() - start) / 1000);
-      saveTracking(s);
+      if (v) { v.duration = Math.round((Date.now() - start) / 1000); saveTracking(s); }
+      postVisit();
     };
     const iv = setInterval(update, 5000);
     const onHide = () => update();
@@ -577,12 +584,17 @@ export default function Simulator({ onOpenBackOffice }) {
     if (!store[linkId]) store[linkId] = {
       label: prospect || "Sans nom",
       website: website || "",
-      espace: "Sonate",
+      espace: "—",
       createdAt: new Date().toISOString(),
       state: encoded,
       visits: [],
     };
     saveTracking(store);
+    // Enregistre aussi le rapport côté serveur (back-office multi-poste).
+    fetch("/api/report", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ linkId, label: prospect || "Sans nom", website: website || "", espace: "—", state: encoded }),
+    }).catch(() => {});
     setShareUrl(url);
     try { await navigator.clipboard.writeText(url); } catch (_) {}
     setCopied(true);

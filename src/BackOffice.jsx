@@ -1,6 +1,5 @@
 import { useState, useEffect } from "react";
-import { loadTracking, saveTracking, fmtDuration, fmtDate, fmtDateShort } from "./tracking";
-import { loadSpaces, saveSpaces, genSpaceId } from "./spaces";
+import { fmtDuration, fmtDate, fmtDateShort } from "./tracking";
 import { genUserId } from "./users";
 import { SECTORS } from "./config/defaults";
 import Login from "./Login.jsx";
@@ -59,11 +58,18 @@ export default function BackOffice({ onBack }) {
   const [authUser, setAuthUser] = useState(undefined); // undefined = chargement, null = non connecté
   const [srvUsers, setSrvUsers] = useState([]);
   const [srvInvites, setSrvInvites] = useState([]);
+  const [srvSpaces, setSrvSpaces] = useState([]);
+  const [srvReports, setSrvReports] = useState([]);
   const loadServer = async () => {
     try {
-      const [ru, ri] = await Promise.all([apiFetch("/api/admin/users"), apiFetch("/api/admin/invites")]);
+      const [ru, ri, rs, rr] = await Promise.all([
+        apiFetch("/api/admin/users"), apiFetch("/api/admin/invites"),
+        apiFetch("/api/admin/spaces"), apiFetch("/api/admin/reports"),
+      ]);
       if (ru.ok) setSrvUsers((await ru.json()).users || []);
       if (ri.ok) setSrvInvites((await ri.json()).invites || []);
+      if (rs.ok) setSrvSpaces((await rs.json()).spaces || []);
+      if (rr.ok) setSrvReports((await rr.json()).reports || []);
     } catch (_) { /* hors-ligne / non déployé */ }
   };
   useEffect(() => {
@@ -80,40 +86,32 @@ export default function BackOffice({ onBack }) {
   }, []);
   const logout = async () => { try { await apiFetch("/api/logout", { method: "POST" }); } catch (_) { /* */ } setAuthUser(null); };
 
-  const spaces = loadSpaces();
+  const spaces = srvSpaces;
   const users = srvUsers;
-  const createSpace = () => {
+  const patchSpace = async (id, body) => {
+    await apiFetch("/api/admin/spaces", { method: "PATCH", body: JSON.stringify({ id, ...body }) });
+    await loadServer();
+  };
+  const createSpace = async () => {
     const name = newSpaceName.trim();
     if (!name) return;
-    const list = loadSpaces();
-    list.push({ id: genSpaceId(), name, createdAt: new Date().toISOString(), role: "Propriétaire", members: [] });
-    saveSpaces(list);
-    setNewSpaceName("");
-    refresh();
+    const res = await apiFetch("/api/admin/spaces", { method: "POST", body: JSON.stringify({ name }) });
+    if (res.ok) { setNewSpaceName(""); await loadServer(); }
   };
-  const deleteSpace = (s) => {
+  const deleteSpace = async (s) => {
     if (!window.confirm(`Supprimer l'espace « ${s.name} » ?`)) return;
-    saveSpaces(loadSpaces().filter(x => x.id !== s.id));
-    refresh();
+    await apiFetch(`/api/admin/spaces?id=${encodeURIComponent(s.id)}`, { method: "DELETE" });
+    await loadServer();
   };
   const manageSpace = (s) => { setManagingSpaceId(s.id); setRenameInput(s.name); setAddMode("existant"); setSelectedUserId(""); setInviteEmail(""); setMemberRole("Lecteur"); };
 
-  const updateSpace = (id, fn) => {
-    const list = loadSpaces();
-    const sp = list.find(x => x.id === id);
-    if (!sp) return;
-    fn(sp);
-    saveSpaces(list);
-    refresh();
-  };
-  const renameSpace = (s) => {
+  const renameSpace = async (s) => {
     const name = renameInput.trim();
     if (!name || name === s.name) return;
     // Reporte le renommage sur les rapports rattachés à l'ancien nom d'espace.
-    const t = loadTracking();
-    Object.values(t).forEach(e => { if (e.espace === s.name) e.espace = name; });
-    saveTracking(t);
-    updateSpace(s.id, sp => { sp.name = name; });
+    await Promise.all((srvReports || []).filter(r => r.espace === s.name)
+      .map(r => apiFetch("/api/admin/reports", { method: "PATCH", body: JSON.stringify({ id: r.id, espace: name }) })));
+    await patchSpace(s.id, { name });
   };
   const addMember = (s) => {
     let member = null;
@@ -124,17 +122,22 @@ export default function BackOffice({ onBack }) {
     } else {
       const email = inviteEmail.trim();
       if (!email) return;
-      member = { id: genSpaceId(), name: email.split("@")[0], email, role: memberRole };
+      member = { id: email, name: email.split("@")[0], email, role: memberRole };
     }
-    updateSpace(s.id, sp => {
-      sp.members = sp.members || [];
-      if (sp.members.some(m => m.email === member.email)) return;
-      sp.members.push(member);
-    });
+    const members = [...(s.members || [])];
+    if (members.some(m => m.email === member.email)) return;
+    members.push(member);
     setSelectedUserId(""); setInviteEmail("");
+    patchSpace(s.id, { members });
   };
-  const changeMemberRole = (s, idx, role) => updateSpace(s.id, sp => { (sp.members || [])[idx].role = role; });
-  const removeMember = (s, idx) => updateSpace(s.id, sp => { sp.members = (sp.members || []).filter((_, i) => i !== idx); });
+  const changeMemberRole = (s, idx, role) => {
+    const members = (s.members || []).map((m, i) => i === idx ? { ...m, role } : m);
+    patchSpace(s.id, { members });
+  };
+  const removeMember = (s, idx) => {
+    const members = (s.members || []).filter((_, i) => i !== idx);
+    patchSpace(s.id, { members });
+  };
 
   const managed = managingSpaceId ? spaces.find(s => s.id === managingSpaceId) : null;
 
@@ -220,23 +223,7 @@ export default function BackOffice({ onBack }) {
   const changeUserRole = async (u, role) => { await apiFetch("/api/admin/users", { method: "PATCH", body: JSON.stringify({ email: u.email, role }) }); await loadServer(); };
   const deleteUser = async (u) => { if (!window.confirm(`Supprimer le compte « ${u.name} » ?`)) return; await apiFetch(`/api/admin/users?email=${encodeURIComponent(u.email)}`, { method: "DELETE" }); await loadServer(); };
 
-  const store = loadTracking();
-  const all = Object.entries(store).map(([id, e]) => {
-    const visits = e.visits || [];
-    const last = visits.length ? visits.reduce((a, b) => (new Date(b.ts) > new Date(a.ts) ? b : a)) : null;
-    return {
-      id,
-      prospect: e.label || "Sans nom",
-      website: e.website || "",
-      espace: e.espace || "—",
-      vues: visits.length,
-      temps: visits.reduce((s, v) => s + (v.duration || 0), 0),
-      interactions: e.interactions ?? null,
-      derniere: last ? last.ts : null,
-      creation: e.createdAt,
-      state: e.state,
-    };
-  });
+  const all = (srvReports || []).map(e => ({ ...e, interactions: e.interactions ?? null }));
 
   const espaceOptions = Array.from(new Set([
     ...spaces.map(s => s.name),
@@ -258,14 +245,14 @@ export default function BackOffice({ onBack }) {
     // Ouverture interne (sans &t=) : ne compte pas comme une consultation prospect.
     window.location.href = `${window.location.origin}${window.location.pathname}?s=${e.state}`;
   };
-  const moveReportTo = (e, name) => {
-    const s = loadTracking();
-    if (s[e.id]) { s[e.id].espace = name || "—"; saveTracking(s); refresh(); }
+  const moveReportTo = async (e, name) => {
+    await apiFetch("/api/admin/reports", { method: "PATCH", body: JSON.stringify({ id: e.id, espace: name || "—" }) });
+    await loadServer();
   };
-  const deleteReport = (e) => {
+  const deleteReport = async (e) => {
     if (!window.confirm(`Supprimer le rapport « ${e.prospect} » ?`)) return;
-    const s = loadTracking();
-    delete s[e.id]; saveTracking(s); refresh();
+    await apiFetch(`/api/admin/reports?id=${encodeURIComponent(e.id)}`, { method: "DELETE" });
+    await loadServer();
   };
 
   const inputStyle = {
@@ -600,8 +587,9 @@ export default function BackOffice({ onBack }) {
           </>
         )) : section === "utilisateurs" ? (() => {
           const enCours = invites.filter(i => inviteStatus(i) !== "activated").length;
-          const recentActivity = Object.values(store)
-            .flatMap(e => (e.visits || []).map(v => ({ ts: v.ts, duration: v.duration, prospect: e.label })))
+          const recentActivity = (srvReports || [])
+            .filter(r => r.derniere)
+            .map(r => ({ ts: r.derniere, duration: r.temps, prospect: r.prospect }))
             .sort((a, b) => new Date(b.ts) - new Date(a.ts)).slice(0, 15);
           return (
           <>
