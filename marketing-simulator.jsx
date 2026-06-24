@@ -1,5 +1,5 @@
 import { useState, useEffect, useLayoutEffect, useRef } from "react";
-import { SECTORS, getDefaultValues, CONVERSION_SUPPORTS, getSupportConversionRate, BUSINESS_TYPES, CONTACT_TYPES } from "./src/config/defaults";
+import { SECTORS, getDefaultValues, getSectorSalesCycle, CONVERSION_SUPPORTS, getSupportConversionRate, BUSINESS_TYPES, CONTACT_TYPES } from "./src/config/defaults";
 
 const CFG = {
   channels: {
@@ -308,6 +308,7 @@ export default function Simulator() {
     const d = getDefaultValues(channel, sector);
     if (d) { setCpc(d.cpc); setCtr(d.ctr); setConv(d.conversionRate); setBudget(d.budget); }
     setCpm(CFG.channels[channel]?.cpmDefault ?? 10);
+    setCycleVente(getSectorSalesCycle(sector));
   }, [channel, sector]);
 
   // Restore state from shared URL on first load
