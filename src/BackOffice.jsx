@@ -1,8 +1,9 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { loadTracking, saveTracking, fmtDuration, fmtDate, fmtDateShort } from "./tracking";
 import { loadSpaces, saveSpaces, genSpaceId } from "./spaces";
-import { loadUsers, saveUsers, genUserId, loadInvites, saveInvites } from "./users";
+import { genUserId } from "./users";
 import { SECTORS } from "./config/defaults";
+import Login from "./Login.jsx";
 
 const ROLES = ["Propriétaire", "Éditeur", "Lecteur"];
 const USER_ROLES = ["Utilisateur", "Admin"];
@@ -50,8 +51,37 @@ export default function BackOffice({ onBack }) {
 
   const goSection = (key) => { setSection(key); setManagingSpaceId(null); };
 
+  // ── Authentification + données serveur (comptes / invitations) ──
+  const apiFetch = (path, opts = {}) => fetch(path, {
+    ...opts,
+    headers: { "Content-Type": "application/json", "X-Requested-With": "fetch", ...(opts.headers || {}) },
+  });
+  const [authUser, setAuthUser] = useState(undefined); // undefined = chargement, null = non connecté
+  const [srvUsers, setSrvUsers] = useState([]);
+  const [srvInvites, setSrvInvites] = useState([]);
+  const loadServer = async () => {
+    try {
+      const [ru, ri] = await Promise.all([apiFetch("/api/admin/users"), apiFetch("/api/admin/invites")]);
+      if (ru.ok) setSrvUsers((await ru.json()).users || []);
+      if (ri.ok) setSrvInvites((await ri.json()).invites || []);
+    } catch (_) { /* hors-ligne / non déployé */ }
+  };
+  useEffect(() => {
+    let alive = true;
+    (async () => {
+      try {
+        const r = await apiFetch("/api/me");
+        if (!alive) return;
+        if (r.ok) { const u = await r.json(); setAuthUser(u); if (u.role === "Admin") loadServer(); }
+        else setAuthUser(null);
+      } catch (_) { if (alive) setAuthUser(null); }
+    })();
+    return () => { alive = false; };
+  }, []);
+  const logout = async () => { try { await apiFetch("/api/logout", { method: "POST" }); } catch (_) { /* */ } setAuthUser(null); };
+
   const spaces = loadSpaces();
-  const users = loadUsers();
+  const users = srvUsers;
   const createSpace = () => {
     const name = newSpaceName.trim();
     if (!name) return;
@@ -88,9 +118,9 @@ export default function BackOffice({ onBack }) {
   const addMember = (s) => {
     let member = null;
     if (addMode === "existant") {
-      const u = users.find(x => x.id === selectedUserId);
+      const u = users.find(x => x.email === selectedUserId);
       if (!u) return;
-      member = { id: u.id, name: u.name, email: u.email, role: memberRole };
+      member = { id: u.email, name: u.name, email: u.email, role: memberRole };
     } else {
       const email = inviteEmail.trim();
       if (!email) return;
@@ -119,33 +149,14 @@ export default function BackOffice({ onBack }) {
   const [newUserPwd, setNewUserPwd] = useState("");
   const [activityOpen, setActivityOpen] = useState(false);
 
-  const usersFull = loadUsers();
-  const invites = loadInvites();
-  const activeEmails = new Set(usersFull.map(u => u.email));
-  const inviteStatus = (inv) =>
-    (inv.activatedAt || activeEmails.has(inv.email)) ? "activated"
-    : (new Date(inv.expiresAt).getTime() < Date.now() ? "expired" : "pending");
-
   const [refreshingInvites, setRefreshingInvites] = useState(false);
-  const refreshInviteStatuses = async () => {
-    const list = loadInvites();
-    const pending = list.filter(i => i.token && !i.activatedAt);
-    if (!pending.length) { setInviteMsg({ ok: null, text: "Aucune invitation en attente à vérifier." }); return; }
-    setRefreshingInvites(true);
-    try {
-      await Promise.all(pending.map(async (i) => {
-        try {
-          const r = await fetch(`/api/invite-status?token=${encodeURIComponent(i.token)}`);
-          const d = await r.json().catch(() => ({}));
-          if (r.ok && d.status === "activated") i.activatedAt = d.activatedAt || new Date().toISOString();
-        } catch (_) { /* ignore */ }
-      }));
-      saveInvites(list);
-      refresh();
-    } finally {
-      setRefreshingInvites(false);
-    }
-  };
+  const usersFull = srvUsers;
+  const invites = srvInvites;
+  const activeEmails = new Set(usersFull.map(u => u.email));
+  const inviteStatus = (inv) => inv.status
+    || ((inv.activatedAt || activeEmails.has(inv.email)) ? "activated"
+        : (new Date(inv.expiresAt).getTime() < Date.now() ? "expired" : "pending"));
+
   const spacesOfUser = (email) => spaces.filter(s => (s.members || []).some(m => m.email === email));
 
   const sendInvite = async () => {
@@ -154,54 +165,60 @@ export default function BackOffice({ onBack }) {
     const now = Date.now();
     const token = genUserId() + genUserId();
     const expiresAt = new Date(now + WEEK_MS).toISOString();
-    const list = loadInvites();
-    list.push({ id: genUserId(), email, espace: uInviteSpace, role: uInviteRole, token, sentAt: new Date(now).toISOString(), expiresAt });
-    saveInvites(list);
-    setUInviteEmail("");
-    refresh();
-    // Envoi réel de l'email via la fonction serverless Brevo (/api/invite).
     const link = `${window.location.origin}${window.location.pathname}?invite=${token}`;
     setInviteSending(true);
     setInviteMsg({ ok: null, text: "Envoi en cours…" });
     try {
-      const res = await fetch("/api/invite", {
+      const res = await apiFetch("/api/invite", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email, espace: uInviteSpace, role: uInviteRole, link, expiresAt }),
+        body: JSON.stringify({ email, espace: uInviteSpace, role: uInviteRole, link, expiresAt, token }),
       });
       if (res.ok) {
+        setUInviteEmail("");
         setInviteMsg({ ok: true, text: `Invitation envoyée à ${email}.` });
+        await loadServer();
       } else {
         const b = await res.json().catch(() => ({}));
-        setInviteMsg({ ok: false, text: (b.error || `Échec de l'envoi (${res.status}).`) + " L'invitation reste enregistrée localement." });
+        setInviteMsg({ ok: false, text: b.error || `Échec de l'envoi (${res.status}).` });
       }
     } catch (_) {
-      setInviteMsg({ ok: false, text: "Endpoint d'envoi indisponible (l'email part une fois déployé sur Vercel avec la clé Brevo). L'invitation est enregistrée localement." });
+      setInviteMsg({ ok: false, text: "Service indisponible (l'envoi fonctionne une fois déployé sur Vercel)." });
     } finally {
       setInviteSending(false);
     }
   };
-  const regenInvite = (inv) => {
+  const regenInvite = async (inv) => {
+    // Renvoie une nouvelle invitation (nouveau token) puis supprime l'ancienne.
     const now = Date.now();
-    const list = loadInvites();
-    const it = list.find(x => x.id === inv.id);
-    if (it) { it.sentAt = new Date(now).toISOString(); it.expiresAt = new Date(now + WEEK_MS).toISOString(); }
-    saveInvites(list);
-    refresh();
+    const token = genUserId() + genUserId();
+    const expiresAt = new Date(now + WEEK_MS).toISOString();
+    const link = `${window.location.origin}${window.location.pathname}?invite=${token}`;
+    try {
+      const res = await apiFetch("/api/invite", { method: "POST", body: JSON.stringify({ email: inv.email, espace: inv.espace, role: inv.role, link, expiresAt, token }) });
+      if (res.ok) {
+        await apiFetch(`/api/admin/invites?token=${encodeURIComponent(inv.token)}`, { method: "DELETE" });
+        setInviteMsg({ ok: true, text: `Nouvelle invitation envoyée à ${inv.email}.` });
+        await loadServer();
+      }
+    } catch (_) { /* ignore */ }
   };
-  const deleteInvite = (inv) => { saveInvites(loadInvites().filter(x => x.id !== inv.id)); refresh(); };
-  const createAccount = () => {
+  const deleteInvite = async (inv) => {
+    await apiFetch(`/api/admin/invites?token=${encodeURIComponent(inv.token)}`, { method: "DELETE" });
+    await loadServer();
+  };
+  const refreshInviteStatuses = async () => {
+    setRefreshingInvites(true);
+    try { await loadServer(); } finally { setRefreshingInvites(false); }
+  };
+  const createAccount = async () => {
     const email = newUserEmail.trim();
     if (!email || newUserPwd.length < 8) { window.alert("Email requis et mot de passe d'au moins 8 caractères."); return; }
-    const list = loadUsers();
-    if (list.some(u => u.email === email)) { window.alert("Un compte avec cet email existe déjà."); return; }
-    list.push({ id: genUserId(), name: newUserName.trim() || email.split("@")[0], email, role: "Utilisateur", createdAt: new Date().toISOString(), cnx: 0, temps: 0, interactions: 0, firstLogin: null, lastLogin: null });
-    saveUsers(list);
-    setNewUserName(""); setNewUserEmail(""); setNewUserPwd("");
-    refresh();
+    const res = await apiFetch("/api/admin/users", { method: "POST", body: JSON.stringify({ name: newUserName.trim(), email, password: newUserPwd, role: "Utilisateur" }) });
+    if (res.ok) { setNewUserName(""); setNewUserEmail(""); setNewUserPwd(""); await loadServer(); }
+    else { const b = await res.json().catch(() => ({})); window.alert(b.error || "Échec de la création."); }
   };
-  const changeUserRole = (u, role) => { const list = loadUsers(); const it = list.find(x => x.id === u.id); if (it) it.role = role; saveUsers(list); refresh(); };
-  const deleteUser = (u) => { if (!window.confirm(`Supprimer le compte « ${u.name} » ?`)) return; saveUsers(loadUsers().filter(x => x.id !== u.id)); refresh(); };
+  const changeUserRole = async (u, role) => { await apiFetch("/api/admin/users", { method: "PATCH", body: JSON.stringify({ email: u.email, role }) }); await loadServer(); };
+  const deleteUser = async (u) => { if (!window.confirm(`Supprimer le compte « ${u.name} » ?`)) return; await apiFetch(`/api/admin/users?email=${encodeURIComponent(u.email)}`, { method: "DELETE" }); await loadServer(); };
 
   const store = loadTracking();
   const all = Object.entries(store).map(([id, e]) => {
@@ -267,6 +284,14 @@ export default function BackOffice({ onBack }) {
   const th = { fontSize: 9.5, fontWeight: 700, letterSpacing: "0.1em", textTransform: "uppercase", color: "rgba(255,255,255,0.32)", textAlign: "left", padding: "0 10px 14px" };
   const td = { fontSize: 12.5, color: "rgba(255,255,255,0.75)", padding: "16px 10px", verticalAlign: "middle" };
 
+  // Accès réservé : tant que la session n'est pas connue, on attend ; sinon login.
+  if (authUser === undefined) {
+    return <div style={{ minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center", background: BG, color: MUTED, fontFamily: "'DM Sans',sans-serif" }}>Chargement…</div>;
+  }
+  if (!authUser || authUser.role !== "Admin") {
+    return <Login onAuthed={(u) => { setAuthUser(u); if (u.role === "Admin") loadServer(); }} onBack={onBack} />;
+  }
+
   return (
     <div style={{ minHeight: "100vh", display: "flex", background: BG, fontFamily: "'DM Sans',sans-serif", color: CREAM }}>
       {/* ── Sidebar ── */}
@@ -302,8 +327,9 @@ export default function BackOffice({ onBack }) {
             ← Simulateur
           </button>
           <div style={{ padding: "12px 4px 2px" }}>
-            <div style={{ fontSize: 12, color: "rgba(255,255,255,0.55)" }}>Espace back-office</div>
-            <div style={{ fontSize: 11, color: "rgba(255,255,255,0.3)", marginTop: 2 }}>Sonate</div>
+            <div style={{ fontSize: 12, color: "rgba(255,255,255,0.7)" }}>{authUser.name || authUser.email}</div>
+            <div style={{ fontSize: 11, color: "rgba(255,255,255,0.3)", marginTop: 2 }}>{authUser.email}</div>
+            <button onClick={logout} style={{ marginTop: 8, background: "transparent", border: "none", color: ACCENT, fontSize: 11.5, cursor: "pointer", padding: 0, fontFamily: "'DM Sans',sans-serif" }}>Se déconnecter</button>
           </div>
         </div>
       </aside>
@@ -436,7 +462,7 @@ export default function BackOffice({ onBack }) {
                   <select value={selectedUserId} onChange={e => setSelectedUserId(e.target.value)} style={{ ...inputStyle, flex: 1, cursor: "pointer" }}>
                     <option value="">Sélectionner un utilisateur…</option>
                     {users.filter(u => !(managed.members || []).some(m => m.email === u.email)).map(u => (
-                      <option key={u.id} value={u.id}>{u.name} · {u.email}</option>
+                      <option key={u.email} value={u.email}>{u.name} · {u.email}</option>
                     ))}
                   </select>
                 ) : (
@@ -641,7 +667,7 @@ export default function BackOffice({ onBack }) {
                       ? { bg: "rgba(255,255,255,0.08)", col: "rgba(255,255,255,0.5)", txt: "Invitation expirée" }
                       : { bg: "rgba(255,107,61,0.15)", col: ACCENT, txt: "En attente" };
                     return (
-                      <tr key={inv.id} style={{ background: CARD }}>
+                      <tr key={inv.token} style={{ background: CARD }}>
                         <td style={{ ...td, borderRadius: "10px 0 0 10px" }}>{inv.email}</td>
                         <td style={{ ...td, color: MUTED }}>{inv.espace || "—"}</td>
                         <td style={td}><span style={{ fontSize: 11.5, fontWeight: 600, padding: "4px 11px", borderRadius: 7, background: badge.bg, color: badge.col }}>{badge.txt}</span></td>
@@ -674,7 +700,7 @@ export default function BackOffice({ onBack }) {
                   {usersFull.map(u => {
                     const us = spacesOfUser(u.email);
                     return (
-                      <tr key={u.id} style={{ background: CARD }}>
+                      <tr key={u.email} style={{ background: CARD }}>
                         <td style={{ ...td, borderRadius: "10px 0 0 10px", fontWeight: 700, color: CREAM }}>{u.name}</td>
                         <td style={{ ...td, color: MUTED, maxWidth: 160, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{u.email}</td>
                         <td style={td}>

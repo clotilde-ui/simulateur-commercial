@@ -7,7 +7,7 @@
 //   BREVO_SENDER_EMAIL – email expéditeur (doit être un expéditeur vérifié dans Brevo)
 //   BREVO_SENDER_NAME  – nom expéditeur (optionnel, défaut « Sonate »)
 
-import { kvSet, kvConfigured } from "./_kv.js";
+import { kvSet, kvSAdd, kvConfigured } from "./_kv.js";
 
 export default async function handler(req, res) {
   if (req.method !== "POST") {
@@ -34,6 +34,7 @@ export default async function handler(req, res) {
         email, espace: espace || "", role: role || "Lecteur",
         sentAt: new Date().toISOString(), expiresAt: expiresAt || null, activatedAt: null,
       }, ttl);
+      await kvSAdd("invites:index", token);
     } catch (_) { /* l'email part quand même ; l'activation sera indisponible sans KV */ }
   }
 
