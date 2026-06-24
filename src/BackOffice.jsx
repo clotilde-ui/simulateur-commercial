@@ -112,6 +112,8 @@ export default function BackOffice({ onBack }) {
   const [uInviteEmail, setUInviteEmail] = useState("");
   const [uInviteSpace, setUInviteSpace] = useState("");
   const [uInviteRole, setUInviteRole] = useState("Lecteur");
+  const [inviteMsg, setInviteMsg] = useState(null);
+  const [inviteSending, setInviteSending] = useState(false);
   const [newUserName, setNewUserName] = useState("");
   const [newUserEmail, setNewUserEmail] = useState("");
   const [newUserPwd, setNewUserPwd] = useState("");
@@ -125,7 +127,7 @@ export default function BackOffice({ onBack }) {
     : (new Date(inv.expiresAt).getTime() < Date.now() ? "expired" : "pending");
   const spacesOfUser = (email) => spaces.filter(s => (s.members || []).some(m => m.email === email));
 
-  const sendInvite = () => {
+  const sendInvite = async () => {
     const email = uInviteEmail.trim();
     if (!email) return;
     const now = Date.now();
@@ -134,6 +136,26 @@ export default function BackOffice({ onBack }) {
     saveInvites(list);
     setUInviteEmail("");
     refresh();
+    // Envoi réel de l'email via la fonction serverless Brevo (/api/invite).
+    setInviteSending(true);
+    setInviteMsg({ ok: null, text: "Envoi en cours…" });
+    try {
+      const res = await fetch("/api/invite", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email, espace: uInviteSpace, role: uInviteRole, link: window.location.origin }),
+      });
+      if (res.ok) {
+        setInviteMsg({ ok: true, text: `Invitation envoyée à ${email}.` });
+      } else {
+        const b = await res.json().catch(() => ({}));
+        setInviteMsg({ ok: false, text: (b.error || `Échec de l'envoi (${res.status}).`) + " L'invitation reste enregistrée localement." });
+      }
+    } catch (_) {
+      setInviteMsg({ ok: false, text: "Endpoint d'envoi indisponible (l'email part une fois déployé sur Vercel avec la clé Brevo). L'invitation est enregistrée localement." });
+    } finally {
+      setInviteSending(false);
+    }
   };
   const regenInvite = (inv) => {
     const now = Date.now();
@@ -551,7 +573,12 @@ export default function BackOffice({ onBack }) {
                   {ROLES.map(r => <option key={r} value={r}>{r}</option>)}
                 </select>
               </div>
-              <button onClick={sendInvite} style={{ padding: "11px 22px", borderRadius: 9, fontSize: 13, fontWeight: 700, cursor: "pointer", background: ACCENT, border: `1px solid ${ACCENT}`, color: "#fff", fontFamily: "'DM Sans',sans-serif" }}>+ Envoyer une invitation</button>
+              <div style={{ display: "flex", alignItems: "center", gap: 14, flexWrap: "wrap" }}>
+                <button onClick={sendInvite} disabled={inviteSending} style={{ padding: "11px 22px", borderRadius: 9, fontSize: 13, fontWeight: 700, cursor: inviteSending ? "default" : "pointer", background: ACCENT, border: `1px solid ${ACCENT}`, color: "#fff", fontFamily: "'DM Sans',sans-serif", opacity: inviteSending ? 0.7 : 1 }}>{inviteSending ? "Envoi…" : "+ Envoyer une invitation"}</button>
+                {inviteMsg && (
+                  <span style={{ fontSize: 12.5, color: inviteMsg.ok === true ? "#5fb98a" : inviteMsg.ok === false ? ACCENT : MUTED }}>{inviteMsg.text}</span>
+                )}
+              </div>
             </div>
 
             {/* Créer un compte */}
