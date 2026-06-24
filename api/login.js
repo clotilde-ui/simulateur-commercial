@@ -1,5 +1,5 @@
 // POST /api/login — { email, password } → cookie de session.
-import { kvGet, verifyPassword } from "./_kv.js";
+import { getUserRaw, verifyPassword } from "./_db.js";
 import { createSession, sessionCookie, authConfigured } from "./_auth.js";
 
 export default async function handler(req, res) {
@@ -17,11 +17,11 @@ export default async function handler(req, res) {
     user = { email: adminEmail, name: "Admin", role: "Admin" };
   } else {
     try {
-      const u = await kvGet(`user:${email}`);
-      if (u && verifyPassword(password, u.passwordHash)) {
+      const u = await getUserRaw(email);
+      if (u && verifyPassword(password, u.password_hash)) {
         user = { email: u.email, name: u.name, role: u.role || "Lecteur" };
       }
-    } catch (_) { /* KV indisponible → identifiants refusés */ }
+    } catch (_) { /* base indisponible → identifiants refusés */ }
   }
 
   if (!user) return res.status(401).json({ error: "Email ou mot de passe incorrect." });
