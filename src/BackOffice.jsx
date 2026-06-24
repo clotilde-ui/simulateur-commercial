@@ -195,11 +195,9 @@ export default function BackOffice({ onBack }) {
     // Ouverture interne (sans &t=) : ne compte pas comme une consultation prospect.
     window.location.href = `${window.location.origin}${window.location.pathname}?s=${e.state}`;
   };
-  const moveReport = (e) => {
-    const v = window.prompt("Espace client :", e.espace === "—" ? "" : e.espace);
-    if (v === null) return;
+  const moveReportTo = (e, name) => {
     const s = loadTracking();
-    if (s[e.id]) { s[e.id].espace = v.trim() || "—"; saveTracking(s); refresh(); }
+    if (s[e.id]) { s[e.id].espace = name || "—"; saveTracking(s); refresh(); }
   };
   const deleteReport = (e) => {
     if (!window.confirm(`Supprimer le rapport « ${e.prospect} » ?`)) return;
@@ -329,7 +327,12 @@ export default function BackOffice({ onBack }) {
                       </td>
                       <td style={{ ...td, color: MUTED }}>{fmtDate(e.creation)}</td>
                       <td style={{ ...td, borderRadius: "0 10px 10px 0", textAlign: "right", whiteSpace: "nowrap" }}>
-                        <button onClick={() => moveReport(e)} style={actionBtn("deplacer")}>Déplacer</button>{" "}
+                        <select value={e.espace === "—" ? "" : e.espace} onChange={ev => moveReportTo(e, ev.target.value)}
+                          title="Déplacer vers un espace" style={{ ...actionBtn("deplacer"), cursor: "pointer", appearance: "auto" }}>
+                          <option value="">Aucun espace</option>
+                          {Array.from(new Set([...spaces.map(s => s.name), ...(e.espace && e.espace !== "—" ? [e.espace] : [])]))
+                            .map(name => <option key={name} value={name}>{name}</option>)}
+                        </select>{" "}
                         <button onClick={() => openReport(e)} disabled={!e.state} style={{ ...actionBtn("ouvrir"), opacity: e.state ? 1 : 0.4, cursor: e.state ? "pointer" : "default" }}>Ouvrir</button>{" "}
                         <button onClick={() => deleteReport(e)} style={actionBtn("supprimer")}>Supprimer</button>
                       </td>
