@@ -31,3 +31,9 @@ export function fmtDate(iso) {
     return new Date(iso).toLocaleString("fr-FR", { day: "2-digit", month: "2-digit", year: "2-digit", hour: "2-digit", minute: "2-digit" });
   } catch { return iso; }
 }
+
+export function fmtDateShort(iso) {
+  try {
+    return new Date(iso).toLocaleDateString("fr-FR", { day: "2-digit", month: "2-digit", year: "numeric" });
+  } catch { return iso; }
+}

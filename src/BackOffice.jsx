@@ -1,5 +1,11 @@
 import { useState } from "react";
-import { loadTracking, saveTracking, fmtDuration, fmtDate } from "./tracking";
+import { loadTracking, saveTracking, fmtDuration, fmtDate, fmtDateShort } from "./tracking";
+import { loadSpaces, saveSpaces, genSpaceId } from "./spaces";
+import { loadUsers } from "./users";
+import { SECTORS } from "./config/defaults";
+
+const ROLES = ["Propriétaire", "Éditeur", "Lecteur"];
+const decodeState = (st) => { try { return JSON.parse(atob(st)); } catch { return {}; } };
 
 const BG = "#0F332B";
 const SIDEBAR = "#0C2A23";
@@ -31,8 +37,75 @@ export default function BackOffice({ onBack }) {
   const [search, setSearch] = useState("");
   const [espaceFilter, setEspaceFilter] = useState("");
   const [sort, setSort] = useState("recent");
+  const [newSpaceName, setNewSpaceName] = useState("");
+  const [managingSpaceId, setManagingSpaceId] = useState(null);
+  const [renameInput, setRenameInput] = useState("");
+  const [addMode, setAddMode] = useState("existant");
+  const [selectedUserId, setSelectedUserId] = useState("");
+  const [inviteEmail, setInviteEmail] = useState("");
+  const [memberRole, setMemberRole] = useState("Lecteur");
   const [tick, setTick] = useState(0);
   const refresh = () => setTick(t => t + 1);
+
+  const goSection = (key) => { setSection(key); setManagingSpaceId(null); };
+
+  const spaces = loadSpaces();
+  const users = loadUsers();
+  const createSpace = () => {
+    const name = newSpaceName.trim();
+    if (!name) return;
+    const list = loadSpaces();
+    list.push({ id: genSpaceId(), name, createdAt: new Date().toISOString(), role: "Propriétaire", members: [] });
+    saveSpaces(list);
+    setNewSpaceName("");
+    refresh();
+  };
+  const deleteSpace = (s) => {
+    if (!window.confirm(`Supprimer l'espace « ${s.name} » ?`)) return;
+    saveSpaces(loadSpaces().filter(x => x.id !== s.id));
+    refresh();
+  };
+  const manageSpace = (s) => { setManagingSpaceId(s.id); setRenameInput(s.name); setAddMode("existant"); setSelectedUserId(""); setInviteEmail(""); setMemberRole("Lecteur"); };
+
+  const updateSpace = (id, fn) => {
+    const list = loadSpaces();
+    const sp = list.find(x => x.id === id);
+    if (!sp) return;
+    fn(sp);
+    saveSpaces(list);
+    refresh();
+  };
+  const renameSpace = (s) => {
+    const name = renameInput.trim();
+    if (!name || name === s.name) return;
+    // Reporte le renommage sur les rapports rattachés à l'ancien nom d'espace.
+    const t = loadTracking();
+    Object.values(t).forEach(e => { if (e.espace === s.name) e.espace = name; });
+    saveTracking(t);
+    updateSpace(s.id, sp => { sp.name = name; });
+  };
+  const addMember = (s) => {
+    let member = null;
+    if (addMode === "existant") {
+      const u = users.find(x => x.id === selectedUserId);
+      if (!u) return;
+      member = { id: u.id, name: u.name, email: u.email, role: memberRole };
+    } else {
+      const email = inviteEmail.trim();
+      if (!email) return;
+      member = { id: genSpaceId(), name: email.split("@")[0], email, role: memberRole };
+    }
+    updateSpace(s.id, sp => {
+      sp.members = sp.members || [];
+      if (sp.members.some(m => m.email === member.email)) return;
+      sp.members.push(member);
+    });
+    setSelectedUserId(""); setInviteEmail("");
+  };
+  const changeMemberRole = (s, idx, role) => updateSpace(s.id, sp => { (sp.members || [])[idx].role = role; });
+  const removeMember = (s, idx) => updateSpace(s.id, sp => { sp.members = (sp.members || []).filter((_, i) => i !== idx); });
+
+  const managed = managingSpaceId ? spaces.find(s => s.id === managingSpaceId) : null;
 
   const store = loadTracking();
   const all = Object.entries(store).map(([id, e]) => {
@@ -52,7 +125,10 @@ export default function BackOffice({ onBack }) {
     };
   });
 
-  const espaces = Array.from(new Set(all.map(e => e.espace).filter(x => x && x !== "—")));
+  const espaceOptions = Array.from(new Set([
+    ...spaces.map(s => s.name),
+    ...all.map(e => e.espace).filter(x => x && x !== "—"),
+  ]));
 
   let rows = all.filter(e =>
     (!search || e.prospect.toLowerCase().includes(search.toLowerCase())) &&
@@ -110,7 +186,7 @@ export default function BackOffice({ onBack }) {
           {NAV.map(n => {
             const active = section === n.key;
             return (
-              <button key={n.key} onClick={() => setSection(n.key)} style={{
+              <button key={n.key} onClick={() => goSection(n.key)} style={{
                 display: "flex", alignItems: "center", gap: 11, padding: "11px 13px", borderRadius: 9,
                 cursor: "pointer", textAlign: "left", fontFamily: "'DM Sans',sans-serif", fontSize: 13.5, fontWeight: active ? 700 : 500,
                 background: active ? "rgba(255,107,61,0.12)" : "transparent",
@@ -153,7 +229,7 @@ export default function BackOffice({ onBack }) {
                 style={{ ...inputStyle, flex: 1, minWidth: 240 }} />
               <select value={espaceFilter} onChange={e => setEspaceFilter(e.target.value)} style={{ ...inputStyle, minWidth: 180, cursor: "pointer" }}>
                 <option value="">Tous les espaces</option>
-                {espaces.map(es => <option key={es} value={es}>{es}</option>)}
+                {espaceOptions.map(es => <option key={es} value={es}>{es}</option>)}
               </select>
               <select value={sort} onChange={e => setSort(e.target.value)} style={{ ...inputStyle, minWidth: 180, cursor: "pointer" }}>
                 <option value="recent">Plus récent d'abord</option>
@@ -213,7 +289,191 @@ export default function BackOffice({ onBack }) {
               </table>
             )}
           </>
+        ) : section === "espaces" ? (managed ? (
+          <>
+            {/* En-tête détail espace */}
+            <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", marginBottom: 26 }}>
+              <div>
+                <h1 style={{ fontFamily: "'Manrope',sans-serif", fontWeight: 800, fontSize: 30, letterSpacing: "-0.02em", margin: 0, color: CREAM }}>{managed.name}</h1>
+                <div style={{ fontSize: 13.5, color: MUTED, marginTop: 6 }}>
+                  {(managed.members || []).length} membre{(managed.members || []).length > 1 ? "s" : ""}
+                </div>
+              </div>
+              <button onClick={() => setManagingSpaceId(null)} style={{
+                padding: "10px 18px", borderRadius: 9, fontSize: 13, fontWeight: 600, cursor: "pointer",
+                background: "rgba(255,255,255,0.05)", border: `1px solid ${BORDER}`, color: CREAM, fontFamily: "'DM Sans',sans-serif",
+              }}>← Espaces clients</button>
+            </div>
+
+            {/* Renommer */}
+            <div style={{ background: "rgba(255,255,255,0.025)", border: `1px solid ${BORDER}`, borderRadius: 12, padding: "20px 22px", marginBottom: 22 }}>
+              <div style={{ fontSize: 10.5, fontWeight: 700, letterSpacing: "0.12em", textTransform: "uppercase", color: "rgba(255,255,255,0.4)", marginBottom: 14 }}>Renommer l'espace</div>
+              <div style={{ display: "flex", gap: 12 }}>
+                <input value={renameInput} onChange={e => setRenameInput(e.target.value)}
+                  onKeyDown={e => e.key === "Enter" && renameSpace(managed)}
+                  style={{ ...inputStyle, flex: 1 }} />
+                <button onClick={() => renameSpace(managed)} style={{
+                  padding: "11px 26px", borderRadius: 9, fontSize: 13, fontWeight: 700, cursor: "pointer",
+                  background: "rgba(255,255,255,0.08)", border: `1px solid ${BORDER}`, color: CREAM, fontFamily: "'DM Sans',sans-serif",
+                }}>Renommer</button>
+              </div>
+            </div>
+
+            {/* Ajouter un membre */}
+            <div style={{ background: "rgba(255,255,255,0.025)", border: `1px solid ${BORDER}`, borderRadius: 12, padding: "20px 22px", marginBottom: 26 }}>
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 14 }}>
+                <div style={{ fontSize: 10.5, fontWeight: 700, letterSpacing: "0.12em", textTransform: "uppercase", color: "rgba(255,255,255,0.4)" }}>Ajouter un membre</div>
+                <div style={{ display: "flex", gap: 4, background: "rgba(0,0,0,0.2)", borderRadius: 8, padding: 3 }}>
+                  {[["existant", "Utilisateur existant"], ["email", "Inviter par email"]].map(([k, l]) => (
+                    <button key={k} onClick={() => setAddMode(k)} style={{
+                      padding: "6px 14px", borderRadius: 6, fontSize: 12, fontWeight: 600, cursor: "pointer", border: "none",
+                      background: addMode === k ? ACCENT : "transparent", color: addMode === k ? "#fff" : MUTED, fontFamily: "'DM Sans',sans-serif",
+                    }}>{l}</button>
+                  ))}
+                </div>
+              </div>
+              <div style={{ display: "flex", gap: 12 }}>
+                {addMode === "existant" ? (
+                  <select value={selectedUserId} onChange={e => setSelectedUserId(e.target.value)} style={{ ...inputStyle, flex: 1, cursor: "pointer" }}>
+                    <option value="">Sélectionner un utilisateur…</option>
+                    {users.filter(u => !(managed.members || []).some(m => m.email === u.email)).map(u => (
+                      <option key={u.id} value={u.id}>{u.name} · {u.email}</option>
+                    ))}
+                  </select>
+                ) : (
+                  <input value={inviteEmail} onChange={e => setInviteEmail(e.target.value)}
+                    onKeyDown={e => e.key === "Enter" && addMember(managed)}
+                    placeholder="email@client.com" style={{ ...inputStyle, flex: 1 }} />
+                )}
+                <select value={memberRole} onChange={e => setMemberRole(e.target.value)} style={{ ...inputStyle, width: 140, cursor: "pointer" }}>
+                  {ROLES.map(r => <option key={r} value={r}>{r}</option>)}
+                </select>
+                <button onClick={() => addMember(managed)} style={{
+                  padding: "11px 26px", borderRadius: 9, fontSize: 13, fontWeight: 700, cursor: "pointer",
+                  background: ACCENT, border: `1px solid ${ACCENT}`, color: "#fff", fontFamily: "'DM Sans',sans-serif",
+                }}>Ajouter</button>
+              </div>
+            </div>
+
+            {/* Membres */}
+            <div style={{ fontSize: 10.5, fontWeight: 700, letterSpacing: "0.12em", textTransform: "uppercase", color: "rgba(255,255,255,0.4)", marginBottom: 12 }}>Membres : {(managed.members || []).length}</div>
+            {(managed.members || []).length === 0 ? (
+              <div style={{ color: "rgba(255,255,255,0.3)", fontSize: 13, marginBottom: 30 }}>Aucun membre pour l'instant.</div>
+            ) : (
+              <div style={{ display: "flex", flexDirection: "column", gap: 12, marginBottom: 30 }}>
+                {(managed.members || []).map((m, idx) => (
+                  <div key={idx} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", background: CARD, border: `1px solid ${BORDER}`, borderRadius: 12, padding: "16px 22px" }}>
+                    <div>
+                      <div style={{ fontFamily: "'Manrope',sans-serif", fontWeight: 700, fontSize: 15, color: CREAM }}>{m.name}</div>
+                      <div style={{ fontSize: 12, color: MUTED, marginTop: 2 }}>{m.email}</div>
+                    </div>
+                    <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
+                      <select value={m.role} onChange={e => changeMemberRole(managed, idx, e.target.value)} style={{ ...inputStyle, padding: "8px 12px", cursor: "pointer" }}>
+                        {ROLES.map(r => <option key={r} value={r}>{r}</option>)}
+                      </select>
+                      <button onClick={() => removeMember(managed, idx)} style={{
+                        padding: "8px 18px", borderRadius: 8, fontSize: 12.5, fontWeight: 600, cursor: "pointer",
+                        background: "transparent", border: "1px solid rgba(255,107,61,0.35)", color: ACCENT, fontFamily: "'DM Sans',sans-serif",
+                      }}>Retirer</button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {/* Rapports de l'espace */}
+            {(() => {
+              const spaceReports = all.filter(e => e.espace === managed.name);
+              return (
+                <>
+                  <div style={{ fontSize: 10.5, fontWeight: 700, letterSpacing: "0.12em", textTransform: "uppercase", color: "rgba(255,255,255,0.4)", marginBottom: 12 }}>Rapports : {spaceReports.length}</div>
+                  {spaceReports.length === 0 ? (
+                    <div style={{ color: "rgba(255,255,255,0.3)", fontSize: 13 }}>Aucun rapport dans cet espace.</div>
+                  ) : (
+                    <table style={{ width: "100%", borderCollapse: "separate", borderSpacing: 0 }}>
+                      <thead>
+                        <tr>
+                          <th style={th}>Prospect</th>
+                          <th style={th}>Site</th>
+                          <th style={th}>Secteur</th>
+                          <th style={th}>Date</th>
+                          <th style={{ ...th, textAlign: "right" }}></th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {spaceReports.map(e => {
+                          const d = decodeState(e.state);
+                          return (
+                            <tr key={e.id} style={{ background: CARD }}>
+                              <td style={{ ...td, borderRadius: "10px 0 0 10px", fontWeight: e.prospect === "Sans nom" ? 400 : 700, fontStyle: e.prospect === "Sans nom" ? "italic" : "normal", color: e.prospect === "Sans nom" ? MUTED : CREAM }}>{e.prospect}</td>
+                              <td style={{ ...td, color: MUTED }}>{e.website || "-"}</td>
+                              <td style={{ ...td, color: MUTED }}>{SECTORS[d.sector] || "-"}</td>
+                              <td style={{ ...td, color: MUTED }}>{fmtDateShort(e.creation)}</td>
+                              <td style={{ ...td, borderRadius: "0 10px 10px 0", textAlign: "right" }}>
+                                <button onClick={() => openReport(e)} disabled={!e.state} style={{ ...actionBtn("ouvrir"), opacity: e.state ? 1 : 0.4, cursor: e.state ? "pointer" : "default" }}>Ouvrir</button>
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  )}
+                </>
+              );
+            })()}
+          </>
         ) : (
+          <>
+            <h1 style={{ fontFamily: "'Manrope',sans-serif", fontWeight: 800, fontSize: 30, letterSpacing: "-0.02em", margin: 0, color: CREAM }}>Espaces clients</h1>
+            <div style={{ fontSize: 13.5, color: MUTED, marginTop: 6, marginBottom: 26 }}>
+              {spaces.length} espace{spaces.length > 1 ? "s" : ""}
+            </div>
+
+            {/* Nouvel espace client */}
+            <div style={{ background: "rgba(255,255,255,0.025)", border: `1px solid ${BORDER}`, borderRadius: 12, padding: "20px 22px", marginBottom: 26 }}>
+              <div style={{ fontSize: 10.5, fontWeight: 700, letterSpacing: "0.12em", textTransform: "uppercase", color: "rgba(255,255,255,0.4)", marginBottom: 14 }}>Nouvel espace client</div>
+              <div style={{ display: "flex", gap: 12 }}>
+                <input value={newSpaceName} onChange={e => setNewSpaceName(e.target.value)}
+                  onKeyDown={e => e.key === "Enter" && createSpace()}
+                  placeholder="Nom du client (ex : Agence Durand)"
+                  style={{ ...inputStyle, flex: 1 }} />
+                <button onClick={createSpace} style={{
+                  padding: "11px 28px", borderRadius: 9, fontSize: 13, fontWeight: 700, cursor: "pointer",
+                  background: ACCENT, border: `1px solid ${ACCENT}`, color: "#fff", fontFamily: "'DM Sans',sans-serif",
+                }}>Créer</button>
+              </div>
+            </div>
+
+            {/* Liste des espaces */}
+            {spaces.length === 0 ? (
+              <div style={{ textAlign: "center", padding: "50px 0", color: "rgba(255,255,255,0.35)", fontSize: 14 }}>
+                Aucun espace client. Créez-en un ci-dessus pour organiser vos rapports.
+              </div>
+            ) : (
+              <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+                {spaces.map(s => (
+                  <div key={s.id} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", background: CARD, border: `1px solid ${BORDER}`, borderRadius: 12, padding: "20px 24px" }}>
+                    <div>
+                      <div style={{ fontFamily: "'Manrope',sans-serif", fontWeight: 700, fontSize: 17, color: CREAM }}>{s.name}</div>
+                      <div style={{ fontSize: 12, color: MUTED, marginTop: 4 }}>{fmtDateShort(s.createdAt)}</div>
+                    </div>
+                    <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
+                      <span style={{ fontSize: 12, fontWeight: 700, color: ACCENT }}>{s.role || "Propriétaire"}</span>
+                      <button onClick={() => manageSpace(s)} style={{
+                        padding: "8px 18px", borderRadius: 8, fontSize: 12.5, fontWeight: 600, cursor: "pointer",
+                        background: "rgba(255,255,255,0.08)", border: `1px solid ${BORDER}`, color: CREAM, fontFamily: "'DM Sans',sans-serif",
+                      }}>Gérer</button>
+                      <button onClick={() => deleteSpace(s)} style={{
+                        padding: "8px 18px", borderRadius: 8, fontSize: 12.5, fontWeight: 600, cursor: "pointer",
+                        background: "transparent", border: "1px solid rgba(255,107,61,0.35)", color: ACCENT, fontFamily: "'DM Sans',sans-serif",
+                      }}>Supprimer</button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </>
+        )) : (
           <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", minHeight: 400, textAlign: "center" }}>
             <div style={{ fontFamily: "'Manrope',sans-serif", fontWeight: 800, fontSize: 26, color: CREAM, marginBottom: 8 }}>
               {NAV.find(n => n.key === section)?.label}
