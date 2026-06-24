@@ -1,18 +1,11 @@
-// Fonction serverless Vercel : envoie une invitation par email via Brevo.
-// La clé API Brevo n'est JAMAIS exposée au navigateur — elle est lue ici
-// depuis les variables d'environnement Vercel.
+// POST /api/invite — envoie une invitation par email via Brevo, et persiste
+// l'invitation (Turso) pour permettre l'activation.
 //
-// Variables d'environnement à définir dans Vercel (Settings → Environment Variables) :
-//   BREVO_API_KEY      – clé API Brevo (v3)
-//   BREVO_SENDER_EMAIL – email expéditeur (doit être un expéditeur vérifié dans Brevo)
-//   BREVO_SENDER_NAME  – nom expéditeur (optionnel, défaut « Sonate »)
-
-import { kvSet, kvSAdd, kvConfigured } from "./_kv.js";
+// Variables Brevo : BREVO_API_KEY, BREVO_SENDER_EMAIL, BREVO_SENDER_NAME (opt).
+import { upsertInvite, dbConfigured } from "./_db.js";
 
 export default async function handler(req, res) {
-  if (req.method !== "POST") {
-    return res.status(405).json({ error: "Méthode non autorisée." });
-  }
+  if (req.method !== "POST") return res.status(405).json({ error: "Méthode non autorisée." });
 
   const apiKey = process.env.BREVO_API_KEY;
   const senderEmail = process.env.BREVO_SENDER_EMAIL;
@@ -26,16 +19,11 @@ export default async function handler(req, res) {
     return res.status(400).json({ error: "Adresse email invalide." });
   }
 
-  // Persiste l'invitation côté serveur (clé = token) pour permettre l'activation.
-  if (token && kvConfigured()) {
+  // Persiste l'invitation (clé = token) pour l'activation.
+  if (token && dbConfigured()) {
     try {
-      const ttl = 60 * 60 * 24 * 30; // 30 jours
-      await kvSet(`invite:${token}`, {
-        email, espace: espace || "", role: role || "Lecteur",
-        sentAt: new Date().toISOString(), expiresAt: expiresAt || null, activatedAt: null,
-      }, ttl);
-      await kvSAdd("invites:index", token);
-    } catch (_) { /* l'email part quand même ; l'activation sera indisponible sans KV */ }
+      await upsertInvite(token, { email, espace: espace || "", role: role || "Lecteur", sentAt: new Date().toISOString(), expiresAt: expiresAt || null, activatedAt: null });
+    } catch (_) { /* l'email part quand même ; activation indisponible sans base */ }
   }
 
   const espaceTxt = espace ? ` à l'espace « ${espace} »` : "";
@@ -43,9 +31,7 @@ export default async function handler(req, res) {
   const url = typeof link === "string" ? link : "";
   let expireTxt = "";
   if (expiresAt) {
-    try {
-      expireTxt = `Cette invitation expire le ${new Date(expiresAt).toLocaleDateString("fr-FR", { day: "2-digit", month: "long", year: "numeric" })}.`;
-    } catch (_) { /* ignore */ }
+    try { expireTxt = `Cette invitation expire le ${new Date(expiresAt).toLocaleDateString("fr-FR", { day: "2-digit", month: "long", year: "numeric" })}.`; } catch (_) { /* */ }
   }
 
   const cta = url
@@ -58,7 +44,7 @@ export default async function handler(req, res) {
       <table role="presentation" width="600" cellpadding="0" cellspacing="0" style="max-width:600px;width:100%;background:#ffffff;border-radius:14px;overflow:hidden;border:1px solid #e3ddd0">
         <tr><td style="background:#1a2e25;padding:24px 32px">
           <div style="font-size:24px;font-weight:800;color:#f5f0e8;letter-spacing:-0.02em">Sonate</div>
-          <div style="font-size:10px;letter-spacing:0.18em;color:#e8571a;text-transform:uppercase;margin-top:3px">Accompagnement SEA</div>
+          <div style="font-size:10px;letter-spacing:0.18em;color:#e8571a;text-transform:uppercase;margin-top:3px">Simulateur SEA/SMA</div>
         </td></tr>
         <tr><td style="padding:32px">
           <h1 style="margin:0 0 16px;font-size:20px;color:#1a2e25">Vous êtes invité${espaceTxt}</h1>
@@ -77,11 +63,7 @@ export default async function handler(req, res) {
   try {
     const r = await fetch("https://api.brevo.com/v3/smtp/email", {
       method: "POST",
-      headers: {
-        "api-key": apiKey,
-        "Content-Type": "application/json",
-        accept: "application/json",
-      },
+      headers: { "api-key": apiKey, "Content-Type": "application/json", accept: "application/json" },
       body: JSON.stringify({
         sender: { email: senderEmail, name: senderName },
         to: [{ email }],
@@ -90,12 +72,10 @@ export default async function handler(req, res) {
         textContent: text,
       }),
     });
-
     if (!r.ok) {
       const detail = await r.text().catch(() => "");
       return res.status(502).json({ error: `Erreur Brevo (${r.status}). ${detail}`.trim() });
     }
-
     const data = await r.json().catch(() => ({}));
     return res.status(200).json({ ok: true, messageId: data.messageId ?? null });
   } catch (e) {
