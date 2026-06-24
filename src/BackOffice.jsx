@@ -1,5 +1,6 @@
 import { useState } from "react";
-import { loadTracking, saveTracking, fmtDuration, fmtDate } from "./tracking";
+import { loadTracking, saveTracking, fmtDuration, fmtDate, fmtDateShort } from "./tracking";
+import { loadSpaces, saveSpaces, genSpaceId } from "./spaces";
 
 const BG = "#0F332B";
 const SIDEBAR = "#0C2A23";
@@ -31,8 +32,26 @@ export default function BackOffice({ onBack }) {
   const [search, setSearch] = useState("");
   const [espaceFilter, setEspaceFilter] = useState("");
   const [sort, setSort] = useState("recent");
+  const [newSpaceName, setNewSpaceName] = useState("");
   const [tick, setTick] = useState(0);
   const refresh = () => setTick(t => t + 1);
+
+  const spaces = loadSpaces();
+  const createSpace = () => {
+    const name = newSpaceName.trim();
+    if (!name) return;
+    const list = loadSpaces();
+    list.push({ id: genSpaceId(), name, createdAt: new Date().toISOString(), role: "Propriétaire" });
+    saveSpaces(list);
+    setNewSpaceName("");
+    refresh();
+  };
+  const deleteSpace = (s) => {
+    if (!window.confirm(`Supprimer l'espace « ${s.name} » ?`)) return;
+    saveSpaces(loadSpaces().filter(x => x.id !== s.id));
+    refresh();
+  };
+  const manageSpace = (s) => { setEspaceFilter(s.name); setSection("rapports"); };
 
   const store = loadTracking();
   const all = Object.entries(store).map(([id, e]) => {
@@ -52,7 +71,10 @@ export default function BackOffice({ onBack }) {
     };
   });
 
-  const espaces = Array.from(new Set(all.map(e => e.espace).filter(x => x && x !== "—")));
+  const espaceOptions = Array.from(new Set([
+    ...spaces.map(s => s.name),
+    ...all.map(e => e.espace).filter(x => x && x !== "—"),
+  ]));
 
   let rows = all.filter(e =>
     (!search || e.prospect.toLowerCase().includes(search.toLowerCase())) &&
@@ -153,7 +175,7 @@ export default function BackOffice({ onBack }) {
                 style={{ ...inputStyle, flex: 1, minWidth: 240 }} />
               <select value={espaceFilter} onChange={e => setEspaceFilter(e.target.value)} style={{ ...inputStyle, minWidth: 180, cursor: "pointer" }}>
                 <option value="">Tous les espaces</option>
-                {espaces.map(es => <option key={es} value={es}>{es}</option>)}
+                {espaceOptions.map(es => <option key={es} value={es}>{es}</option>)}
               </select>
               <select value={sort} onChange={e => setSort(e.target.value)} style={{ ...inputStyle, minWidth: 180, cursor: "pointer" }}>
                 <option value="recent">Plus récent d'abord</option>
@@ -211,6 +233,57 @@ export default function BackOffice({ onBack }) {
                   ))}
                 </tbody>
               </table>
+            )}
+          </>
+        ) : section === "espaces" ? (
+          <>
+            <h1 style={{ fontFamily: "'Manrope',sans-serif", fontWeight: 800, fontSize: 30, letterSpacing: "-0.02em", margin: 0, color: CREAM }}>Espaces clients</h1>
+            <div style={{ fontSize: 13.5, color: MUTED, marginTop: 6, marginBottom: 26 }}>
+              {spaces.length} espace{spaces.length > 1 ? "s" : ""}
+            </div>
+
+            {/* Nouvel espace client */}
+            <div style={{ background: "rgba(255,255,255,0.025)", border: `1px solid ${BORDER}`, borderRadius: 12, padding: "20px 22px", marginBottom: 26 }}>
+              <div style={{ fontSize: 10.5, fontWeight: 700, letterSpacing: "0.12em", textTransform: "uppercase", color: "rgba(255,255,255,0.4)", marginBottom: 14 }}>Nouvel espace client</div>
+              <div style={{ display: "flex", gap: 12 }}>
+                <input value={newSpaceName} onChange={e => setNewSpaceName(e.target.value)}
+                  onKeyDown={e => e.key === "Enter" && createSpace()}
+                  placeholder="Nom du client (ex : Agence Durand)"
+                  style={{ ...inputStyle, flex: 1 }} />
+                <button onClick={createSpace} style={{
+                  padding: "11px 28px", borderRadius: 9, fontSize: 13, fontWeight: 700, cursor: "pointer",
+                  background: ACCENT, border: `1px solid ${ACCENT}`, color: "#fff", fontFamily: "'DM Sans',sans-serif",
+                }}>Créer</button>
+              </div>
+            </div>
+
+            {/* Liste des espaces */}
+            {spaces.length === 0 ? (
+              <div style={{ textAlign: "center", padding: "50px 0", color: "rgba(255,255,255,0.35)", fontSize: 14 }}>
+                Aucun espace client. Créez-en un ci-dessus pour organiser vos rapports.
+              </div>
+            ) : (
+              <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+                {spaces.map(s => (
+                  <div key={s.id} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", background: CARD, border: `1px solid ${BORDER}`, borderRadius: 12, padding: "20px 24px" }}>
+                    <div>
+                      <div style={{ fontFamily: "'Manrope',sans-serif", fontWeight: 700, fontSize: 17, color: CREAM }}>{s.name}</div>
+                      <div style={{ fontSize: 12, color: MUTED, marginTop: 4 }}>{fmtDateShort(s.createdAt)}</div>
+                    </div>
+                    <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
+                      <span style={{ fontSize: 12, fontWeight: 700, color: ACCENT }}>{s.role || "Propriétaire"}</span>
+                      <button onClick={() => manageSpace(s)} style={{
+                        padding: "8px 18px", borderRadius: 8, fontSize: 12.5, fontWeight: 600, cursor: "pointer",
+                        background: "rgba(255,255,255,0.08)", border: `1px solid ${BORDER}`, color: CREAM, fontFamily: "'DM Sans',sans-serif",
+                      }}>Gérer</button>
+                      <button onClick={() => deleteSpace(s)} style={{
+                        padding: "8px 18px", borderRadius: 8, fontSize: 12.5, fontWeight: 600, cursor: "pointer",
+                        background: "transparent", border: "1px solid rgba(255,107,61,0.35)", color: ACCENT, fontFamily: "'DM Sans',sans-serif",
+                      }}>Supprimer</button>
+                    </div>
+                  </div>
+                ))}
+              </div>
             )}
           </>
         ) : (
