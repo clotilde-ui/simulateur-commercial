@@ -1,6 +1,6 @@
 // POST /api/accept — le destinataire active son invitation : création du compte
 // (mot de passe haché) et passage de l'invitation à « activé ».
-import { kvGet, kvSet, kvConfigured, hashPassword } from "./_kv.js";
+import { kvGet, kvSet, kvSAdd, kvConfigured, hashPassword } from "./_kv.js";
 
 export default async function handler(req, res) {
   if (req.method !== "POST") return res.status(405).json({ error: "Méthode non autorisée." });
@@ -36,6 +36,7 @@ export default async function handler(req, res) {
 
   try {
     await kvSet(`user:${inv.email}`, user);
+    await kvSAdd("users:index", inv.email);
     inv.activatedAt = new Date().toISOString();
     await kvSet(`invite:${token}`, inv);
   } catch (e) {

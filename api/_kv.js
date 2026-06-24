@@ -41,6 +41,13 @@ export async function kvDel(key) {
   return cmd(["DEL", key]);
 }
 
+export async function kvSAdd(key, member) { return cmd(["SADD", key, member]); }
+export async function kvSRem(key, member) { return cmd(["SREM", key, member]); }
+export async function kvSMembers(key) {
+  const r = await cmd(["SMEMBERS", key]);
+  return Array.isArray(r) ? r : [];
+}
+
 // ─── Mots de passe ───────────────────────────────────────────
 export function hashPassword(pw) {
   const salt = randomBytes(16).toString("hex");

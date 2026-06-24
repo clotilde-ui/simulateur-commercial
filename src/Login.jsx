@@ -1,0 +1,55 @@
+import { useState } from "react";
+
+const G = "#1a2e25", G2 = "#142218", G5 = "#233d30", G3 = "#2d4a3e";
+const CREAM = "#f5f0e8", ORANGE = "#e8571a", MUTED = "rgba(255,255,255,0.5)";
+
+export default function Login({ onAuthed, onBack }) {
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [error, setError] = useState("");
+  const [busy, setBusy] = useState(false);
+
+  const submit = async () => {
+    if (!email || !password) return;
+    setBusy(true); setError("");
+    try {
+      const r = await fetch("/api/login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "X-Requested-With": "fetch" },
+        body: JSON.stringify({ email, password }),
+      });
+      const d = await r.json().catch(() => ({}));
+      if (r.ok) onAuthed(d);
+      else setError(d.error || "Connexion refusée.");
+    } catch (_) {
+      setError("Service indisponible (l'authentification fonctionne une fois déployée sur Vercel).");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const input = { width: "100%", boxSizing: "border-box", background: G2, border: `1px solid ${G3}`, borderRadius: 9, padding: "12px 14px", color: CREAM, fontSize: 14, outline: "none", fontFamily: "'Inter',sans-serif", marginBottom: 12 };
+
+  return (
+    <div style={{ minHeight: "100vh", background: G, color: CREAM, fontFamily: "'Inter',sans-serif", display: "flex", alignItems: "center", justifyContent: "center", padding: 24 }}>
+      <div style={{ width: "100%", maxWidth: 400, background: G5, borderRadius: 16, border: `1px solid ${G3}`, padding: "32px 34px", boxShadow: "0 16px 48px rgba(0,0,0,0.4)" }}>
+        <div style={{ fontWeight: 800, fontSize: 24, letterSpacing: "-0.02em" }}>Sonate</div>
+        <div style={{ fontSize: 10, letterSpacing: "0.18em", color: ORANGE, textTransform: "uppercase", marginTop: 2, marginBottom: 6 }}>Back-office</div>
+        <div style={{ color: MUTED, fontSize: 13.5, marginBottom: 22 }}>Connectez-vous pour accéder au back-office.</div>
+
+        <input value={email} onChange={e => setEmail(e.target.value)} placeholder="Email" style={input} />
+        <input type="password" value={password} onChange={e => setPassword(e.target.value)}
+          onKeyDown={e => e.key === "Enter" && submit()} placeholder="Mot de passe" style={input} />
+        {error && <div style={{ color: ORANGE, fontSize: 12.5, marginBottom: 12 }}>{error}</div>}
+        <button onClick={submit} disabled={busy} style={{ width: "100%", padding: "13px", borderRadius: 9, border: "none", background: ORANGE, color: "#fff", fontSize: 14, fontWeight: 700, cursor: busy ? "default" : "pointer", opacity: busy ? 0.7 : 1, fontFamily: "'Inter',sans-serif" }}>
+          {busy ? "Connexion…" : "Se connecter"}
+        </button>
+        {onBack && (
+          <button onClick={onBack} style={{ width: "100%", marginTop: 12, padding: "10px", borderRadius: 9, border: "none", background: "transparent", color: MUTED, fontSize: 13, cursor: "pointer", fontFamily: "'Inter',sans-serif" }}>
+            ← Retour au simulateur
+          </button>
+        )}
+      </div>
+    </div>
+  );
+}
