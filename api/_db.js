@@ -31,6 +31,11 @@ function ready() {
         "CREATE TABLE IF NOT EXISTS spaces (id TEXT PRIMARY KEY, name TEXT, created_at TEXT, role TEXT, members TEXT)",
         "CREATE TABLE IF NOT EXISTS reports (id TEXT PRIMARY KEY, label TEXT, website TEXT, espace TEXT, state TEXT, created_at TEXT, visits TEXT)",
       ], "write");
+      // Migrations additives : colonnes de suivi des connexions. SQLite n'a pas
+      // de "ADD COLUMN IF NOT EXISTS" → on ignore l'erreur si déjà présente.
+      for (const col of ["first_login TEXT", "last_login TEXT", "login_count INTEGER"]) {
+        try { await client().execute(`ALTER TABLE users ADD COLUMN ${col}`); } catch { /* colonne déjà présente */ }
+      }
       for (const email of BOOTSTRAP_ADMINS) {
         await client().execute({ sql: "UPDATE users SET role='Admin' WHERE lower(email)=lower(?)", args: [email] });
       }
@@ -48,9 +53,17 @@ export async function createUser(u) {
 }
 export async function updateUserRole(email, role) { await ex("UPDATE users SET role=? WHERE email=?", [role, email]); }
 export async function removeUser(email) { await ex("DELETE FROM users WHERE email=?", [email]); }
+// Enregistre une connexion réussie : incrémente le compteur, met à jour la
+// dernière connexion et fixe la première si elle n'existe pas encore.
+export async function recordLogin(email, ts) {
+  await ex(
+    "UPDATE users SET login_count = COALESCE(login_count,0) + 1, last_login = ?, first_login = COALESCE(first_login, ?) WHERE email = ?",
+    [ts, ts, email]
+  );
+}
 export async function listUsers() {
-  const r = await ex("SELECT name,email,role,espace,created_at FROM users ORDER BY created_at DESC");
-  return r.rows.map(x => ({ name: x.name, email: x.email, role: x.role, espace: x.espace || "", createdAt: x.created_at }));
+  const r = await ex("SELECT name,email,role,espace,created_at,first_login,last_login,login_count FROM users ORDER BY created_at DESC");
+  return r.rows.map(x => ({ name: x.name, email: x.email, role: x.role, espace: x.espace || "", createdAt: x.created_at, firstLogin: x.first_login || null, lastLogin: x.last_login || null, cnx: x.login_count || 0 }));
 }
 
 // ── Invites ──
