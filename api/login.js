@@ -1,5 +1,5 @@
 // POST /api/login — { email, password } → cookie de session.
-import { getUserRaw, verifyPassword } from "./_db.js";
+import { getUserRaw, verifyPassword, recordLogin, dbConfigured } from "./_db.js";
 import { createSession, sessionCookie, authConfigured } from "./_auth.js";
 
 export default async function handler(req, res) {
@@ -25,6 +25,12 @@ export default async function handler(req, res) {
   }
 
   if (!user) return res.status(401).json({ error: "Email ou mot de passe incorrect." });
+
+  // Trace la connexion (sans bloquer le login en cas d'indisponibilité de la base).
+  // Sans effet pour l'admin « bootstrap » par variables d'env (pas de ligne en base).
+  if (dbConfigured()) {
+    try { await recordLogin(user.email, new Date().toISOString()); } catch (_) { /* non bloquant */ }
+  }
 
   const token = createSession({ email: user.email, role: user.role, name: user.name });
   res.setHeader("Set-Cookie", sessionCookie(token));
