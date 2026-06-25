@@ -608,7 +608,7 @@ export default function BackOffice({ onBack }) {
                   {spaces.map(s => <option key={s.id} value={s.name}>{s.name}</option>)}
                 </select>
                 <select value={uInviteRole} onChange={e => setUInviteRole(e.target.value)} style={{ ...inputStyle, width: 140, cursor: "pointer" }}>
-                  {ROLES.map(r => <option key={r} value={r}>{r}</option>)}
+                  {USER_ROLES.map(r => <option key={r} value={r}>{r}</option>)}
                 </select>
               </div>
               <div style={{ display: "flex", alignItems: "center", gap: 14, flexWrap: "wrap" }}>
