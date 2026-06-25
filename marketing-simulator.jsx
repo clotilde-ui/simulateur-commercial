@@ -544,6 +544,15 @@ export default function Simulator({ onOpenBackOffice, user, onLogout, consultati
   const annualRoiPct  = annualSpend > 0 ? (annualCA * marge / 100 - annualSpend) / annualSpend * 100 : 0;
   const maxMonthLeads = Math.max(...seasonalMonths.map(m => m.leads), 1);
 
+  // Cycle de vente : un lead du mois i se conclut ~ (cycleVente − 1) mois plus
+  // tard. Sur une fenêtre de 12 mois, les cohortes des derniers mois encaissent
+  // en année 2. Le CA « réalisé année 1 » exclut donc ces cohortes décalées,
+  // alors que le budget, lui, est bien dépensé sur les 12 mois.
+  const cv = Math.round(cycleVente);
+  const realizedCohorts = Math.max(1, 13 - cv); // nb de mois dont le CA tombe en année 1
+  const caRealizedY1 = seasonalMonths.slice(0, realizedCohorts).reduce((s, m) => s + m.ca, 0);
+  const cycleShiftsCA = biz.hasClosing && cv > 1; // pas de décalage en e-commerce (achat immédiat)
+
   const stages = [
     { label: ch.funnel[0], value: impr },
     { label: ch.funnel[1], value: clicks },
@@ -816,7 +825,7 @@ export default function Simulator({ onOpenBackOffice, user, onLogout, consultati
                     display={`${cycleVente} mois`}
                     labelColor="rgba(0,0,0,0.45)" trackBg="rgba(0,0,0,0.1)" />
                   <div style={{ fontSize: 10, color: "rgba(0,0,0,0.35)", marginTop: -4 }}>
-                    Contextualise les projections dans le temps
+                    Décale l'encaissement : les leads des derniers mois se concluent en année 2
                   </div>
                 </div>
               )}
@@ -1009,9 +1018,16 @@ export default function Simulator({ onOpenBackOffice, user, onLogout, consultati
           {/* BLOC 1 — main KPIs */}
           <div style={{ display: "flex", gap: 14, marginBottom: 14 }}>
             <div style={{ flex: 1, backgroundColor: G5, borderRadius: 12, padding: "24px 22px", border: `2px solid ${ORANGE}` }}>
-              <div style={{ color: "#7a9e8e", fontSize: 10, textTransform: "uppercase", letterSpacing: "0.1em", marginBottom: 8 }}>CA prévisionnel / an</div>
+              <div style={{ color: "#7a9e8e", fontSize: 10, textTransform: "uppercase", letterSpacing: "0.1em", marginBottom: 8 }}>CA généré / an</div>
               <div style={{ color: ORANGE, fontSize: 40, fontWeight: 800, lineHeight: 1, fontVariantNumeric: "tabular-nums" }}>{fmtC(annualCA)}</div>
-              <div style={{ color: "#5a7a6a", fontSize: 12, marginTop: 8 }}>somme des 12 mois{seasonalityEnabled ? " (saisonnalité incluse)" : ""}</div>
+              {cycleShiftsCA ? (
+                <div style={{ color: "#5a7a6a", fontSize: 12, marginTop: 8 }}>
+                  dont <span style={{ color: CREAM, fontWeight: 700 }}>{fmtC(caRealizedY1)}</span> encaissés en année 1
+                  <span style={{ display: "block", color: "#5a7a6a", marginTop: 2 }}>cycle de vente {cv} mois — le reste bascule en année 2</span>
+                </div>
+              ) : (
+                <div style={{ color: "#5a7a6a", fontSize: 12, marginTop: 8 }}>somme des 12 mois{seasonalityEnabled ? " (saisonnalité incluse)" : ""}</div>
+              )}
             </div>
             <div style={{ flex: 1, display: "flex", gap: 10 }}>
               <div style={{ flex: 1, backgroundColor: G5, borderRadius: 12, padding: "24px 22px", border: `1px solid ${G3}` }}>
