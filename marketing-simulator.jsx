@@ -899,6 +899,16 @@ export default function Simulator({ onOpenBackOffice, user, onLogout, consultati
                     step={0.1} onChange={setCtr} accent={accent} display={`${ctr.toFixed(1)} %`}
                     labelColor="rgba(0,0,0,0.45)" trackBg="rgba(0,0,0,0.1)" />
                 )}
+                {/* Cohérence des leviers : CPC, CTR et CPM sont liés
+                    (CPM = CPC × CTR × 10). On affiche la métrique implicite du
+                    mode non sélectionné pour éviter un trio incohérent. */}
+                {ch.showCtr && (
+                  <div style={{ fontSize: 10, color: "rgba(0,0,0,0.4)", marginTop: -4, marginBottom: 14 }}>
+                    {billing === "cpc"
+                      ? `≈ CPM ${(cpc * ctr * 10).toFixed(1)} € à ce CTR`
+                      : `≈ CPC ${ctr > 0 ? (cpm / (ctr * 10)).toFixed(2) : "—"} € à ce CTR`}
+                  </div>
+                )}
                 <div style={{ marginBottom: 14 }}>
                   <div style={{ ...S.label, color: "rgba(0,0,0,0.45)", marginBottom: 7 }}>Support de conversion</div>
                   <div style={{ display: "flex", gap: 6 }}>
