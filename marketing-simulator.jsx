@@ -659,7 +659,7 @@ export default function Simulator({ onOpenBackOffice, user, onLogout, consultati
   const handleShare = async () => {
     const encoded = btoa(JSON.stringify({ channel, sector, mode, budget, tLeads, cpc, ctr, conv, billing, cpm, support, businessType, contactType, geoScope, geoZone, panierMoyen, revenueType, mrr, lifetime, marge, closing, cycleVente, seasonalityEnabled, startMonth, highSeasonMonths, highSeasonMultiplier, prospect, website }));
     const linkId = genLinkId();
-    const url = `${window.location.origin}${window.location.pathname}?s=${encoded}&t=${linkId}`;
+    const url = `${window.location.origin}/?s=${encoded}&t=${linkId}`;
     // Référence le lien dans le suivi local pour pouvoir consulter ses statistiques.
     const store = loadTracking();
     if (!store[linkId]) store[linkId] = {
@@ -1335,7 +1335,7 @@ export default function Simulator({ onOpenBackOffice, user, onLogout, consultati
                           {r.espace && r.espace !== "—" ? `${r.espace} · ` : ""}{r.vues || 0} vue{r.vues > 1 ? "s" : ""}{r.temps ? ` · ${fmtDuration(r.temps)}` : ""}
                         </div>
                       </div>
-                      <button onClick={() => { if (r.state) window.location.href = `${window.location.origin}${window.location.pathname}?s=${r.state}`; }}
+                      <button onClick={() => { if (r.state) window.location.href = `${window.location.origin}/?s=${r.state}`; }}
                         disabled={!r.state}
                         style={{ ...hOutBtn, flexShrink: 0, opacity: r.state ? 1 : 0.4, cursor: r.state ? "pointer" : "default", color: CREAM, borderColor: G3, background: "rgba(255,255,255,0.06)" }}>
                         Ouvrir

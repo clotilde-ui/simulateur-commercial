@@ -50,7 +50,7 @@ export default function InviteAccept({ token }) {
     }
   };
 
-  const appUrl = `${window.location.origin}${window.location.pathname}`;
+  const appUrl = `${window.location.origin}/`;
   const card = { width: "100%", maxWidth: 460, background: G5, borderRadius: 16, border: `1px solid ${G3}`, padding: "32px 34px", boxShadow: "0 16px 48px rgba(0,0,0,0.4)" };
   const input = { width: "100%", boxSizing: "border-box", background: G2, border: `1px solid ${G3}`, borderRadius: 9, padding: "12px 14px", color: CREAM, fontSize: 14, outline: "none", fontFamily: "'Inter',sans-serif", marginBottom: 12 };
   const btn = { width: "100%", padding: "13px", borderRadius: 9, border: "none", background: ORANGE, color: "#fff", fontSize: 14, fontWeight: 700, cursor: submitting ? "default" : "pointer", opacity: submitting ? 0.7 : 1, fontFamily: "'Inter',sans-serif" };
