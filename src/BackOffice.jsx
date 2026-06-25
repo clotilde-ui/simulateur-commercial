@@ -171,7 +171,7 @@ export default function BackOffice({ onBack }) {
     const now = Date.now();
     const token = genUserId() + genUserId();
     const expiresAt = new Date(now + WEEK_MS).toISOString();
-    const link = `${window.location.origin}${window.location.pathname}?invite=${token}`;
+    const link = `${window.location.origin}/?invite=${token}`;
     setInviteSending(true);
     setInviteMsg({ ok: null, text: "Envoi en cours…" });
     try {
@@ -198,7 +198,7 @@ export default function BackOffice({ onBack }) {
     const now = Date.now();
     const token = genUserId() + genUserId();
     const expiresAt = new Date(now + WEEK_MS).toISOString();
-    const link = `${window.location.origin}${window.location.pathname}?invite=${token}`;
+    const link = `${window.location.origin}/?invite=${token}`;
     try {
       const res = await apiFetch("/api/invite", { method: "POST", body: JSON.stringify({ email: inv.email, espace: inv.espace, role: inv.role, link, expiresAt, token }) });
       if (res.ok) {
@@ -250,7 +250,7 @@ export default function BackOffice({ onBack }) {
   const openReport = (e) => {
     if (!e.state) return;
     // Ouverture interne (sans &t=) : ne compte pas comme une consultation prospect.
-    window.location.href = `${window.location.origin}${window.location.pathname}?s=${e.state}`;
+    window.location.href = `${window.location.origin}/?s=${e.state}`;
   };
   const moveReportTo = async (e, name) => {
     await apiFetch("/api/admin?resource=reports", { method: "PATCH", body: JSON.stringify({ id: e.id, espace: name || "—" }) });

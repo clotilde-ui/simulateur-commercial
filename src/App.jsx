@@ -4,8 +4,12 @@ import BackOffice from "./BackOffice.jsx";
 import InviteAccept from "./InviteAccept.jsx";
 import Login from "./Login.jsx";
 
+// Routage minimal par chemin (API History, sans dépendance) : /back-office ↔ /.
+const pathToView = (p) => (p === "/back-office" ? "backoffice" : "simulator");
+const viewToPath = (v) => (v === "backoffice" ? "/back-office" : "/");
+
 export default function App() {
-  const [view, setView] = useState("simulator");
+  const [view, setView] = useState(() => pathToView(window.location.pathname));
   const [auth, setAuth] = useState(undefined); // undefined = chargement, null = non connecté
 
   const params = new URLSearchParams(window.location.search);
@@ -28,6 +32,18 @@ export default function App() {
     setAuth(null);
   };
 
+  // Met à jour l'URL en même temps que l'écran, et suit les boutons précédent/suivant.
+  const navigate = (v) => {
+    setView(v);
+    const path = viewToPath(v);
+    if (window.location.pathname !== path) window.history.pushState({}, "", path);
+  };
+  useEffect(() => {
+    const onPop = () => setView(pathToView(window.location.pathname));
+    window.addEventListener("popstate", onPop);
+    return () => window.removeEventListener("popstate", onPop);
+  }, []);
+
   // 1) Activation d'une invitation (destinataire sans compte).
   if (inviteToken) return <InviteAccept token={inviteToken} />;
 
@@ -41,10 +57,10 @@ export default function App() {
   if (!auth) return <Login onAuthed={setAuth} />;
 
   return view === "backoffice"
-    ? <BackOffice onBack={() => setView("simulator")} />
+    ? <BackOffice onBack={() => navigate("simulator")} />
     : <Simulator
         user={auth}
         onLogout={logout}
-        onOpenBackOffice={auth.role === "Admin" ? () => setView("backoffice") : undefined}
+        onOpenBackOffice={auth.role === "Admin" ? () => navigate("backoffice") : undefined}
       />;
 }
