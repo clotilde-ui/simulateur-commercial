@@ -327,6 +327,7 @@ export default function Simulator({ onOpenBackOffice, user, onLogout, consultati
   const [geoScope, setGeoScope] = useState("france");
   const [geoZone, setGeoZone]   = useState("");
   const [panierMoyen, setPanierMoyen] = useState(300);
+  const [marge, setMarge]             = useState(70);
   const [closing, setClosing]         = useState(20);
   const [cycleVente, setCycleVente]   = useState(1);
   const [seasonalityEnabled, setSeasonalityEnabled] = useState(false);
@@ -401,6 +402,7 @@ export default function Simulator({ onOpenBackOffice, user, onLogout, consultati
         if (d.geoScope === "france" || d.geoScope === "localisee") setGeoScope(d.geoScope);
         if (d.geoZone) setGeoZone(d.geoZone);
         if (d.panierMoyen > 0) setPanierMoyen(d.panierMoyen);
+        if (d.marge >= 0 && d.marge <= 100) setMarge(d.marge);
         if (d.closing > 0)     setClosing(d.closing);
         if (d.cycleVente >= 1 && d.cycleVente <= 12) setCycleVente(d.cycleVente);
         if (typeof d.seasonalityEnabled === "boolean") setSeasonalityEnabled(d.seasonalityEnabled);
@@ -489,7 +491,14 @@ export default function Simulator({ onOpenBackOffice, user, onLogout, consultati
   const clients     = biz.hasClosing ? Math.round(leads * closing / 100) : leads;
   const caPotentiel = clients * panierMoyen;
   const spend = mode === "budget" ? budget : budgetOut;
-  const roi = spend > 0 ? caPotentiel / spend : 0;
+  // ROAS = chiffre d'affaires généré pour 1 € dépensé (CA / budget).
+  // ROI net = profit réel rapporté au budget, une fois la marge produit déduite.
+  // Un ROAS de x1 n'est PAS rentable : il faut couvrir le coût de revient (1 − marge).
+  const roas   = spend > 0 ? caPotentiel / spend : 0;
+  const profit = caPotentiel * marge / 100 - spend;
+  const roiPct = spend > 0 ? (profit / spend) * 100 : 0;
+  // Seuil de rentabilité : ROAS minimal pour que la marge couvre la dépense.
+  const breakEvenRoas = marge > 0 ? 100 / marge : Infinity;
 
   // Courbe d'apprentissage : évolution du CPL/CPA sur les premiers mois.
   const learningData = LEARNING_STEPS.map(s => ({ ...s, cpl: cpl * s.mult }));
@@ -587,7 +596,7 @@ export default function Simulator({ onOpenBackOffice, user, onLogout, consultati
 
   // ── Share ─────────────────────────────────────────────────
   const handleShare = async () => {
-    const encoded = btoa(JSON.stringify({ channel, sector, mode, budget, tLeads, cpc, ctr, conv, billing, cpm, support, businessType, contactType, geoScope, geoZone, panierMoyen, closing, cycleVente, seasonalityEnabled, startMonth, highSeasonMonths, highSeasonMultiplier, prospect, website }));
+    const encoded = btoa(JSON.stringify({ channel, sector, mode, budget, tLeads, cpc, ctr, conv, billing, cpm, support, businessType, contactType, geoScope, geoZone, panierMoyen, marge, closing, cycleVente, seasonalityEnabled, startMonth, highSeasonMonths, highSeasonMultiplier, prospect, website }));
     const linkId = genLinkId();
     const url = `${window.location.origin}${window.location.pathname}?s=${encoded}&t=${linkId}`;
     // Référence le lien dans le suivi local pour pouvoir consulter ses statistiques.
@@ -897,6 +906,14 @@ export default function Simulator({ onOpenBackOffice, user, onLogout, consultati
                   <input type="number" value={panierMoyen} min={1}
                     onChange={e => setPanierMoyen(Math.max(1, Number(e.target.value)))}
                     style={{ marginTop: 6, background: "rgba(0,0,0,0.05)", border: "1px solid rgba(0,0,0,0.1)", borderRadius: 6, padding: "4px 8px", color: "#0F332B", fontSize: 12, width: "100%", outline: "none", fontFamily: "'DM Sans',sans-serif" }} />
+                  <div style={{ marginTop: 14 }}>
+                    <Slider label="Marge brute (%)" value={marge} min={1} max={100}
+                      step={1} onChange={setMarge} accent={accent} display={`${Math.round(marge)} %`}
+                      labelColor="rgba(0,0,0,0.45)" trackBg="rgba(0,0,0,0.1)" />
+                    <div style={{ fontSize: 10, color: "rgba(0,0,0,0.35)", marginTop: -4 }}>
+                      Part du panier qui reste après coût de revient — sert au calcul du ROI net.
+                    </div>
+                  </div>
                 </div>
               </div>
 
@@ -983,14 +1000,14 @@ export default function Simulator({ onOpenBackOffice, user, onLogout, consultati
             </div>
             <div style={{ flex: 1, display: "flex", gap: 10 }}>
               <div style={{ flex: 1, backgroundColor: G5, borderRadius: 12, padding: "24px 22px", border: `1px solid ${G3}` }}>
-                <div style={{ color: "#7a9e8e", fontSize: 10, textTransform: "uppercase", letterSpacing: "0.1em", marginBottom: 8 }}>ROI mensuel</div>
-                <div style={{ color: CREAM, fontSize: 40, fontWeight: 800, lineHeight: 1, fontVariantNumeric: "tabular-nums" }}>×{roi.toFixed(1)}</div>
-                <div style={{ color: "#5a7a6a", fontSize: 12, marginTop: 8 }}>{roi >= 1 ? "investissement rentable" : "non rentable"}</div>
+                <div style={{ color: "#7a9e8e", fontSize: 10, textTransform: "uppercase", letterSpacing: "0.1em", marginBottom: 8 }}>ROAS</div>
+                <div style={{ color: CREAM, fontSize: 40, fontWeight: 800, lineHeight: 1, fontVariantNumeric: "tabular-nums" }}>×{roas.toFixed(1)}</div>
+                <div style={{ color: "#5a7a6a", fontSize: 12, marginTop: 8 }}>CA pour 1 € investi</div>
               </div>
-              <div style={{ flex: 1, backgroundColor: G5, borderRadius: 12, padding: "24px 22px", border: `1px solid ${G3}` }}>
-                <div style={{ color: "#7a9e8e", fontSize: 10, textTransform: "uppercase", letterSpacing: "0.1em", marginBottom: 8 }}>ROI annuel</div>
-                <div style={{ color: CREAM, fontSize: 40, fontWeight: 800, lineHeight: 1, fontVariantNumeric: "tabular-nums" }}>×{annualRoi.toFixed(1)}</div>
-                <div style={{ color: "#5a7a6a", fontSize: 12, marginTop: 8 }}>sur 12 mois</div>
+              <div style={{ flex: 1, backgroundColor: G5, borderRadius: 12, padding: "24px 22px", border: `1px solid ${roiPct >= 0 ? G3 : "#a6402a"}` }}>
+                <div style={{ color: "#7a9e8e", fontSize: 10, textTransform: "uppercase", letterSpacing: "0.1em", marginBottom: 8 }}>ROI net</div>
+                <div style={{ color: roiPct >= 0 ? "#4caf50" : ORANGE, fontSize: 40, fontWeight: 800, lineHeight: 1, fontVariantNumeric: "tabular-nums" }}>{roiPct >= 0 ? "+" : ""}{Math.round(roiPct)}%</div>
+                <div style={{ color: "#5a7a6a", fontSize: 12, marginTop: 8 }}>après marge {Math.round(marge)}% · {roiPct >= 0 ? "rentable" : "non rentable"}</div>
               </div>
             </div>
           </div>
