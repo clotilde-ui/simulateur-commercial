@@ -509,24 +509,39 @@ export default function Simulator({ onOpenBackOffice, user, onLogout, consultati
     { label: "Mois 4 et +", deltaLabel: "−30% suppl.", tag: "maturité",          cpl: cpl * 0.5 },
   ];
 
-  // Saisonnalité : projection sur 12 mois, chaque mois pondéré par son coefficient.
+  // Projection sur 12 mois combinant DEUX effets, mois par mois :
+  //  • Apprentissage : le CPL/CPA baisse les premiers mois (LEARNING_STEPS),
+  //    puis se stabilise à maturité (×0,5 dès M4). À budget constant cela
+  //    génère plus de volume ; à objectif constant cela coûte moins cher.
+  //  • Saisonnalité : en haute saison on capte plus de volume MAIS on dépense
+  //    aussi davantage (le coefficient s'applique au volume ET au budget),
+  //    sinon le ROI serait artificiellement gonflé par des leads « gratuits ».
   const seasonalMonths = Array.from({ length: 12 }, (_, i) => {
     const calMonth = (startMonth + i) % 12;
     const high = seasonalityEnabled && highSeasonMonths[calMonth];
     const coef = high ? highSeasonMultiplier : 1;
+    const lm = LEARNING_STEPS[i]?.mult ?? LEARNING_STEPS[LEARNING_STEPS.length - 1].mult; // mult CPL du mois
+    // budget figé → le volume profite de la baisse de CPL (÷ lm) ;
+    // objectif figé → le volume reste la cible, c'est le budget qui baisse (× lm).
+    const mLeads   = mode === "budget" ? leads * coef / lm : leads * coef;
+    const mClients = biz.hasClosing ? mLeads * closing / 100 : mLeads;
+    const mCA      = mClients * panierMoyen;
+    const mSpend   = mode === "budget" ? spend * coef : spend * coef * lm;
     return {
       label: seasonalityEnabled ? MONTH_NAMES[calMonth] : `M${i + 1}`,
       high, coef,
-      leads: leads * coef,
-      clients: clients * coef,
-      ca: caPotentiel * coef,
+      leads: mLeads,
+      clients: mClients,
+      ca: mCA,
+      spend: mSpend,
     };
   });
   const annualLeads   = seasonalMonths.reduce((s, m) => s + m.leads, 0);
   const annualClients = seasonalMonths.reduce((s, m) => s + m.clients, 0);
   const annualCA      = seasonalMonths.reduce((s, m) => s + m.ca, 0);
-  const annualSpend   = spend * 12;
-  const annualRoi     = annualSpend > 0 ? annualCA / annualSpend : 0;
+  const annualSpend   = seasonalMonths.reduce((s, m) => s + m.spend, 0);
+  const annualRoas    = annualSpend > 0 ? annualCA / annualSpend : 0;
+  const annualRoiPct  = annualSpend > 0 ? (annualCA * marge / 100 - annualSpend) / annualSpend * 100 : 0;
   const maxMonthLeads = Math.max(...seasonalMonths.map(m => m.leads), 1);
 
   const stages = [
@@ -1127,8 +1142,8 @@ export default function Simulator({ onOpenBackOffice, user, onLogout, consultati
                   </div>
                   <div style={{ fontSize: 10, color: "rgba(255,255,255,0.35)" }}>
                     {seasonalityEnabled
-                      ? `${biz.conversionStage} pondérés (×${highSeasonMultiplier.toFixed(1)} en haute saison)`
-                      : `Activez la saisonnalité pour pondérer les mois`}
+                      ? `Montée en charge + saisonnalité (×${highSeasonMultiplier.toFixed(1)} en haute saison)`
+                      : `Montée en charge incluse · activez la saisonnalité pour pondérer les mois`}
                   </div>
                 </div>
 
@@ -1154,8 +1169,10 @@ export default function Simulator({ onOpenBackOffice, user, onLogout, consultati
                   {[
                     { l: `${biz.conversionStage} / an`, v: Math.round(annualLeads).toLocaleString("fr-FR") },
                     ...(biz.hasClosing ? [{ l: `${biz.finalStage} / an`, v: Math.round(annualClients).toLocaleString("fr-FR") }] : []),
+                    { l: "Budget 12 mois", v: `${Math.round(annualSpend).toLocaleString("fr-FR")} €` },
                     { l: "CA cumulé 12 mois", v: `${Math.round(annualCA).toLocaleString("fr-FR")} €` },
-                    { l: "ROI 12 mois", v: `x${annualRoi.toFixed(2)}` },
+                    { l: "ROAS 12 mois", v: `x${annualRoas.toFixed(2)}` },
+                    { l: "ROI net 12 mois", v: `${annualRoiPct >= 0 ? "+" : ""}${Math.round(annualRoiPct)}%` },
                   ].map((s, i, arr) => (
                     <div key={i} style={{ flex: 1, textAlign: "center", borderRight: i < arr.length - 1 ? "1px solid rgba(255,255,255,0.06)" : "none" }}>
                       <div style={{ fontSize: 9, color: "rgba(255,255,255,0.27)", letterSpacing: "0.08em", textTransform: "uppercase", marginBottom: 4 }}>{s.l}</div>
@@ -1166,7 +1183,7 @@ export default function Simulator({ onOpenBackOffice, user, onLogout, consultati
 
                 {seasonalityEnabled && (
                   <div style={{ marginTop: 14, padding: "10px 12px", background: accent + "14", borderRadius: 8, border: `1px solid ${accent}33`, fontSize: 10.5, color: "rgba(255,255,255,0.6)", lineHeight: 1.5 }}>
-                    Démarrage en {MONTH_NAMES[startMonth]}. Les mois de haute saison sont pondérés ×{highSeasonMultiplier.toFixed(1)} ; les autres restent à leur volume de base.
+                    Démarrage en {MONTH_NAMES[startMonth]}. Volume et budget des mois de haute saison pondérés ×{highSeasonMultiplier.toFixed(1)} ; les premiers mois intègrent la montée en charge (CPL décroissant).
                   </div>
                 )}
               </div>
