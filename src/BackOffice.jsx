@@ -230,7 +230,7 @@ export default function BackOffice({ onBack }) {
   };
   const deleteUser = async (u) => { if (!window.confirm(`Supprimer le compte « ${u.name} » ?`)) return; await apiFetch(`/api/admin?resource=users&email=${encodeURIComponent(u.email)}`, { method: "DELETE" }); await loadServer(); };
 
-  const all = (srvReports || []).map(e => ({ ...e, interactions: e.interactions ?? null }));
+  const all = srvReports || [];
 
   const espaceOptions = Array.from(new Set([
     ...spaces.map(s => s.name),
@@ -367,7 +367,6 @@ export default function BackOffice({ onBack }) {
                     <th style={th}>Espace client</th>
                     <th style={{ ...th, textAlign: "right" }}>Vues</th>
                     <th style={{ ...th, textAlign: "right" }}>Temps passé</th>
-                    <th style={{ ...th, textAlign: "right" }}>Interactions</th>
                     <th style={th}>Dernière consult.</th>
                     <th style={th}>Création</th>
                     <th style={{ ...th, textAlign: "right" }}></th>
@@ -385,7 +384,6 @@ export default function BackOffice({ onBack }) {
                       </td>
                       <td style={{ ...td, textAlign: "right", fontWeight: 700, color: e.vues ? "#5fb98a" : "rgba(255,255,255,0.25)" }}>{e.vues || "-"}</td>
                       <td style={{ ...td, textAlign: "right" }}>{e.temps ? fmtDuration(e.temps) : <span style={{ color: "rgba(255,255,255,0.25)" }}>-</span>}</td>
-                      <td style={{ ...td, textAlign: "right" }}>{e.interactions != null ? e.interactions : <span style={{ color: "rgba(255,255,255,0.25)" }}>-</span>}</td>
                       <td style={td}>
                         {e.derniere
                           ? fmtDate(e.derniere)
